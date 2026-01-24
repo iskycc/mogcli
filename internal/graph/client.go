@@ -35,17 +35,19 @@ func NewClient() (*Client, error) {
 	}
 
 	// Check if token is expired
-	if tokens.ExpiresAt > 0 && time.Now().Unix() >= tokens.ExpiresAt {
+	expiresAt := tokens.GetExpiresAt()
+	if expiresAt > 0 && time.Now().Unix() >= expiresAt {
 		// Try to refresh
 		cfg, err := config.Load()
 		if err != nil {
 			return nil, fmt.Errorf("token expired, please login again")
 		}
-		if tokens.RefreshToken == "" || cfg.ClientID == "" {
+		clientID := cfg.GetClientID()
+		if tokens.RefreshToken == "" || clientID == "" {
 			return nil, fmt.Errorf("token expired, please login again")
 		}
 
-		newTokens, err := RefreshToken(cfg.ClientID, tokens.RefreshToken)
+		newTokens, err := RefreshToken(clientID, tokens.RefreshToken)
 		if err != nil {
 			return nil, fmt.Errorf("failed to refresh token: %w", err)
 		}

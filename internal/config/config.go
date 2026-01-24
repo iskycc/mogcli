@@ -9,15 +9,40 @@ import (
 )
 
 // Config holds mog configuration.
+// Compatible with both Go and Node mog formats.
 type Config struct {
-	ClientID string `json:"client_id"`
+	ClientID   string `json:"client_id"`  // Go format
+	ClientIDv2 string `json:"clientId"`   // Node format
+}
+
+// GetClientID returns the client ID, handling both formats.
+func (c *Config) GetClientID() string {
+	if c.ClientID != "" {
+		return c.ClientID
+	}
+	return c.ClientIDv2
 }
 
 // Tokens holds OAuth tokens.
+// Compatible with both Go and Node mog formats.
 type Tokens struct {
 	AccessToken  string `json:"access_token"`
 	RefreshToken string `json:"refresh_token"`
-	ExpiresAt    int64  `json:"expires_at"`
+	ExpiresAt    int64  `json:"expires_at"`    // Go format
+	ExpiresIn    int64  `json:"expires_in"`    // Node format
+	SavedAt      int64  `json:"saved_at"`      // Node format (ms)
+}
+
+// GetExpiresAt returns the expiration time, handling both formats.
+func (t *Tokens) GetExpiresAt() int64 {
+	if t.ExpiresAt > 0 {
+		return t.ExpiresAt
+	}
+	if t.SavedAt > 0 && t.ExpiresIn > 0 {
+		// Node format: saved_at is ms, expires_in is seconds
+		return (t.SavedAt / 1000) + t.ExpiresIn
+	}
+	return 0
 }
 
 // Slugs holds ID to slug mappings.
