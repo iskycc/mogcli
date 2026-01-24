@@ -142,8 +142,8 @@ func (c *ContactsGetCmd) Run(root *Root) error {
 	for _, p := range contact.BusinessPhones {
 		fmt.Printf("Phone: %s (business)\n", p)
 	}
-	for _, p := range contact.MobilePhone {
-		fmt.Printf("Phone: %s (mobile)\n", p)
+	if contact.MobilePhone != "" {
+		fmt.Printf("Phone: %s (mobile)\n", contact.MobilePhone)
 	}
 	if contact.CompanyName != "" {
 		fmt.Printf("Company: %s\n", contact.CompanyName)
@@ -326,7 +326,7 @@ type Contact struct {
 	DisplayName    string        `json:"displayName"`
 	EmailAddresses []EmailRecord `json:"emailAddresses"`
 	BusinessPhones []string      `json:"businessPhones"`
-	MobilePhone    []string      `json:"mobilePhone"`
+	MobilePhone    string        `json:"mobilePhone"`
 	CompanyName    string        `json:"companyName"`
 	JobTitle       string        `json:"jobTitle"`
 }

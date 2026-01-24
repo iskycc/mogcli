@@ -65,7 +65,8 @@ func (c *ExcelListCmd) Run(root *Root) error {
 		return nil
 	}
 
-	fmt.Println("Excel Workbooks\n")
+	fmt.Println("Excel Workbooks")
+	fmt.Println()
 	for _, wb := range resp.Value {
 		fmt.Printf("📊 %s  %s  %s\n", wb.Name, formatSize(wb.Size), wb.LastModifiedDateTime[:10])
 		fmt.Printf("   ID: %s\n", graph.FormatID(wb.ID))
@@ -113,7 +114,8 @@ func (c *ExcelMetadataCmd) Run(root *Root) error {
 		return nil
 	}
 
-	fmt.Println("Worksheets\n")
+	fmt.Println("Worksheets")
+	fmt.Println()
 	for _, sheet := range resp.Value {
 		visibility := ""
 		if sheet.Visibility != "Visible" {
@@ -466,7 +468,8 @@ func (c *ExcelTablesCmd) Run(root *Root) error {
 		return nil
 	}
 
-	fmt.Println("Tables\n")
+	fmt.Println("Tables")
+	fmt.Println()
 	for _, table := range resp.Value {
 		fmt.Printf("📋 %s\n", table.Name)
 		if table.ShowHeaders {

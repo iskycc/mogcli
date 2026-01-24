@@ -66,7 +66,8 @@ func (c *PPTListCmd) Run(root *Root) error {
 		return nil
 	}
 
-	fmt.Println("PowerPoint Presentations\n")
+	fmt.Println("PowerPoint Presentations")
+	fmt.Println()
 	for _, ppt := range presentations {
 		fmt.Printf("📊 %s  %s  %s\n", ppt.Name, formatSize(ppt.Size), ppt.LastModifiedDateTime[:10])
 		fmt.Printf("   ID: %s\n", graph.FormatID(ppt.ID))

@@ -1,4 +1,5 @@
-// Package graph provides a Microsoft Graph API client.
+// Package graph provides a Microsoft Graph API client with OAuth2 authentication
+// and automatic token refresh support.
 package graph
 
 import (

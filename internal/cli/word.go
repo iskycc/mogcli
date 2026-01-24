@@ -66,7 +66,8 @@ func (c *WordListCmd) Run(root *Root) error {
 		return nil
 	}
 
-	fmt.Println("Word Documents\n")
+	fmt.Println("Word Documents")
+	fmt.Println()
 	for _, doc := range docs {
 		fmt.Printf("📝 %s  %s  %s\n", doc.Name, formatSize(doc.Size), doc.LastModifiedDateTime[:10])
 		fmt.Printf("   ID: %s\n", graph.FormatID(doc.ID))

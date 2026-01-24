@@ -136,14 +136,14 @@ func (c *CalendarGetCmd) Run(root *Root) error {
 
 // CalendarCreateCmd creates an event.
 type CalendarCreateCmd struct {
-	Summary     string   `help:"Event title/summary" required:""`
-	From        string   `help:"Start time (ISO format)" required:""`
-	To          string   `help:"End time (ISO format)" required:""`
-	Location    string   `help:"Location"`
-	Body        string   `help:"Description/body"`
-	Attendees   []string `help:"Attendee email addresses"`
-	AllDay      bool     `help:"All-day event" name:"all-day"`
-	Calendar    string   `help:"Calendar ID"`
+	Summary   string   `help:"Event title/summary" required:""`
+	From      string   `help:"Start time (ISO format)" required:""`
+	To        string   `help:"End time (ISO format)" required:""`
+	Location  string   `help:"Location"`
+	Body      string   `help:"Description/body"`
+	Attendees []string `help:"Attendee email addresses"`
+	AllDay    bool     `help:"All-day event" name:"all-day"`
+	Calendar  string   `help:"Calendar ID"`
 }
 
 // Run executes calendar create.
@@ -391,9 +391,9 @@ func (c *CalendarFreeBusyCmd) Run(root *Root) error {
 	}
 
 	body := map[string]interface{}{
-		"schedules":         schedules,
-		"startTime":         map[string]string{"dateTime": c.Start, "timeZone": "UTC"},
-		"endTime":           map[string]string{"dateTime": c.End, "timeZone": "UTC"},
+		"schedules":                schedules,
+		"startTime":                map[string]string{"dateTime": c.Start, "timeZone": "UTC"},
+		"endTime":                  map[string]string{"dateTime": c.End, "timeZone": "UTC"},
 		"availabilityViewInterval": 30,
 	}
 
