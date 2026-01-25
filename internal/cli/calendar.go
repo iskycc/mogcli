@@ -141,7 +141,7 @@ type CalendarCreateCmd struct {
 	From      string   `help:"Start time (ISO format)" required:""`
 	To        string   `help:"End time (ISO format)" required:""`
 	Location  string   `help:"Location"`
-	Body      string   `help:"Description/body"`
+	Description string `help:"Event description" name:"description"`
 	Attendees []string `help:"Attendee email addresses"`
 	AllDay    bool     `help:"All-day event" name:"all-day"`
 	Calendar  string   `help:"Calendar ID"`
@@ -170,10 +170,10 @@ func (c *CalendarCreateCmd) Run(root *Root) error {
 		event["location"] = map[string]string{"displayName": c.Location}
 	}
 
-	if c.Body != "" {
+	if c.Description != "" {
 		event["body"] = map[string]string{
 			"contentType": "text",
-			"content":     c.Body,
+			"content":     c.Description,
 		}
 	}
 
@@ -223,7 +223,7 @@ type CalendarUpdateCmd struct {
 	From     string `help:"New start time"`
 	To       string `help:"New end time"`
 	Location string `help:"New location"`
-	Body     string `help:"New description"`
+	Description string `help:"New description" name:"description"`
 }
 
 // Run executes calendar update.
@@ -247,8 +247,8 @@ func (c *CalendarUpdateCmd) Run(root *Root) error {
 	if c.Location != "" {
 		updates["location"] = map[string]string{"displayName": c.Location}
 	}
-	if c.Body != "" {
-		updates["body"] = map[string]string{"contentType": "text", "content": c.Body}
+	if c.Description != "" {
+		updates["body"] = map[string]string{"contentType": "text", "content": c.Description}
 	}
 
 	if len(updates) == 0 {

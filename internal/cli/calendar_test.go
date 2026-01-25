@@ -273,7 +273,7 @@ func TestCalendarCreateCmd_Fields(t *testing.T) {
 		From:      "2024-01-15T10:00:00Z",
 		To:        "2024-01-15T11:00:00Z",
 		Location:  "Room 101",
-		Body:      "Meeting description",
+		Description:      "Meeting description",
 		Attendees: []string{"a@example.com", "b@example.com"},
 		AllDay:    false,
 		Calendar:  "cal-123",
@@ -283,7 +283,7 @@ func TestCalendarCreateCmd_Fields(t *testing.T) {
 	assert.Equal(t, "2024-01-15T10:00:00Z", cmd.From)
 	assert.Equal(t, "2024-01-15T11:00:00Z", cmd.To)
 	assert.Equal(t, "Room 101", cmd.Location)
-	assert.Equal(t, "Meeting description", cmd.Body)
+	assert.Equal(t, "Meeting description", cmd.Description)
 	assert.Len(t, cmd.Attendees, 2)
 	assert.False(t, cmd.AllDay)
 }
@@ -307,7 +307,7 @@ func TestCalendarUpdateCmd_Fields(t *testing.T) {
 		From:     "2024-01-15T14:00:00Z",
 		To:       "2024-01-15T15:00:00Z",
 		Location: "New Room",
-		Body:     "Updated description",
+		Description:     "Updated description",
 	}
 
 	assert.Equal(t, "event-123", cmd.ID)

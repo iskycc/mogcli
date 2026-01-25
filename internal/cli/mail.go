@@ -116,13 +116,14 @@ func (c *MailGetCmd) Run(root *Root) error {
 
 // MailSendCmd sends an email.
 type MailSendCmd struct {
-	To       []string `help:"Recipient(s)" required:""`
-	Cc       []string `help:"CC recipient(s)"`
-	Bcc      []string `help:"BCC recipient(s)"`
-	Subject  string   `help:"Subject line" required:""`
-	Body     string   `help:"Message body"`
-	BodyFile string   `help:"Read body from file (- for stdin)" name:"body-file"`
-	BodyHTML string   `help:"HTML body" name:"body-html"`
+	To               []string `help:"Recipient(s)" required:""`
+	Cc               []string `help:"CC recipient(s)"`
+	Bcc              []string `help:"BCC recipient(s)"`
+	Subject          string   `help:"Subject line" required:""`
+	Body             string   `help:"Message body"`
+	BodyFile         string   `help:"Read body from file (- for stdin)" name:"body-file"`
+	BodyHTML         string   `help:"HTML body" name:"body-html"`
+	ReplyToMessageID string   `help:"Reply to message ID" name:"reply-to-message-id"`
 }
 
 // Run executes mail send.
@@ -155,23 +156,44 @@ func (c *MailSendCmd) Run(root *Root) error {
 		return fmt.Errorf("message body is required (use --body, --body-file, or --body-html)")
 	}
 
-	msg := map[string]interface{}{
-		"message": map[string]interface{}{
-			"subject": c.Subject,
-			"body": map[string]string{
-				"contentType": contentType,
-				"content":     body,
-			},
-			"toRecipients":  formatRecipients(c.To),
-			"ccRecipients":  formatRecipients(c.Cc),
-			"bccRecipients": formatRecipients(c.Bcc),
-		},
-	}
-
 	ctx := context.Background()
-	_, err = client.Post(ctx, "/me/sendMail", msg)
-	if err != nil {
-		return err
+
+	// Reply to existing message
+	if c.ReplyToMessageID != "" {
+		messageID := graph.ResolveID(c.ReplyToMessageID)
+		replyMsg := map[string]interface{}{
+			"message": map[string]interface{}{
+				"body": map[string]string{
+					"contentType": contentType,
+					"content":     body,
+				},
+				"toRecipients":  formatRecipients(c.To),
+				"ccRecipients":  formatRecipients(c.Cc),
+				"bccRecipients": formatRecipients(c.Bcc),
+			},
+			"comment": body,
+		}
+		_, err = client.Post(ctx, fmt.Sprintf("/me/messages/%s/reply", messageID), replyMsg)
+		if err != nil {
+			return err
+		}
+	} else {
+		msg := map[string]interface{}{
+			"message": map[string]interface{}{
+				"subject": c.Subject,
+				"body": map[string]string{
+					"contentType": contentType,
+					"content":     body,
+				},
+				"toRecipients":  formatRecipients(c.To),
+				"ccRecipients":  formatRecipients(c.Cc),
+				"bccRecipients": formatRecipients(c.Bcc),
+			},
+		}
+		_, err = client.Post(ctx, "/me/sendMail", msg)
+		if err != nil {
+			return err
+		}
 	}
 
 	fmt.Println("✓ Email sent successfully")
