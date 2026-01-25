@@ -91,11 +91,20 @@ mog generates 8-character slugs for Microsoft's long GUIDs:
 - `mog cal` → `mog calendar`
 - `mog todo` → `mog tasks`
 
-## Config
+## Credential Storage
 
-- `~/.config/mog/tokens.json` - OAuth tokens
-- `~/.config/mog/settings.json` - Client ID
-- `~/.config/mog/slugs.json` - Slug cache
+OAuth tokens stored in config directory (0600 permissions):
+
+| Platform | Location |
+|----------|----------|
+| **macOS** | `~/.config/mog/` |
+| **Linux** | `~/.config/mog/` |
+| **Windows** | `%USERPROFILE%\.config\mog\` |
+
+Files:
+- `tokens.json` - OAuth tokens (encrypted at rest by OS)
+- `settings.json` - Client ID
+- `slugs.json` - Slug cache
 
 ## See Also
 
