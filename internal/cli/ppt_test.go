@@ -1,447 +1,400 @@
 package cli
 
 import (
-	"bytes"
-	"encoding/json"
-	"os"
+	"context"
+	"errors"
+	"net/url"
 	"path/filepath"
-	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"github.com/visionik/mogcli/internal/config"
+	"github.com/visionik/mogcli/internal/testutil"
 )
 
-func setupPPTTestConfig(t *testing.T) func() {
-	t.Helper()
-
-	origHome := os.Getenv("HOME")
-	tmpDir := t.TempDir()
-	os.Setenv("HOME", tmpDir)
-
-	configDir := filepath.Join(tmpDir, ".config", "mog")
-	require.NoError(t, os.MkdirAll(configDir, 0700))
-
-	tokens := &config.Tokens{
-		AccessToken:  "test-access-token",
-		RefreshToken: "test-refresh-token",
-		ExpiresAt:    9999999999,
-	}
-	require.NoError(t, config.SaveTokens(tokens))
-
-	cfg := &config.Config{ClientID: "test-client-id-12345678901234567890"}
-	require.NoError(t, config.Save(cfg))
-
-	return func() {
-		os.Setenv("HOME", origHome)
-	}
-}
-
-// Tests for PPTListCmd
-func TestPPTListCmd_DefaultMax(t *testing.T) {
-	cmd := &PPTListCmd{
-		Max: 50, // Default value
-	}
-	assert.Equal(t, 50, cmd.Max)
-}
-
-func TestPPTListCmd_CustomMax(t *testing.T) {
-	cmd := &PPTListCmd{
-		Max: 100,
-	}
-	assert.Equal(t, 100, cmd.Max)
-}
-
-// Tests for PPTGetCmd
-func TestPPTGetCmd_Fields(t *testing.T) {
-	cmd := &PPTGetCmd{
-		ID: "ppt-123",
-	}
-	assert.Equal(t, "ppt-123", cmd.ID)
-}
-
-// Tests for PPTExportCmd
-func TestPPTExportCmd_Fields(t *testing.T) {
+func TestPPTListCmd_Run(t *testing.T) {
 	tests := []struct {
-		name   string
-		id     string
-		out    string
-		format string
+		name      string
+		cmd       *PPTListCmd
+		root      *Root
+		mockResp  []byte
+		mockErr   error
+		wantErr   bool
+		wantInOut string
 	}{
 		{
-			name:   "pptx export",
-			id:     "ppt-123",
-			out:    "/output/presentation.pptx",
-			format: "pptx",
+			name: "successful list presentations",
+			cmd:  &PPTListCmd{Max: 50},
+			root: &Root{},
+			mockResp: mustJSON(map[string]interface{}{
+				"value": []map[string]interface{}{
+					{
+						"id":                   "file-123",
+						"name":                 "Presentation.pptx",
+						"size":                 8192,
+						"lastModifiedDateTime": "2024-01-15T10:30:00Z",
+						"webUrl":               "https://onedrive.com/file",
+					},
+				},
+			}),
+			wantInOut: "Presentation.pptx",
 		},
 		{
-			name:   "pdf export",
-			id:     "ppt-456",
-			out:    "/output/presentation.pdf",
-			format: "pdf",
+			name: "no presentations found",
+			cmd:  &PPTListCmd{Max: 50},
+			root: &Root{},
+			mockResp: mustJSON(map[string]interface{}{
+				"value": []map[string]interface{}{},
+			}),
+			wantInOut: "No PowerPoint presentations found",
+		},
+		{
+			name: "filters non-pptx files",
+			cmd:  &PPTListCmd{Max: 50},
+			root: &Root{},
+			mockResp: mustJSON(map[string]interface{}{
+				"value": []map[string]interface{}{
+					{"id": "file-1", "name": "Slides.pptx", "size": 1024, "lastModifiedDateTime": "2024-01-15T10:30:00Z"},
+					{"id": "file-2", "name": "Image.pptx.png", "size": 2048, "lastModifiedDateTime": "2024-01-15T10:30:00Z"},
+				},
+			}),
+			wantInOut: "Slides.pptx",
+		},
+		{
+			name: "JSON output",
+			cmd:  &PPTListCmd{Max: 50},
+			root: &Root{JSON: true},
+			mockResp: mustJSON(map[string]interface{}{
+				"value": []map[string]interface{}{
+					{"id": "file-123", "name": "Test.pptx"},
+				},
+			}),
+			wantInOut: `"name": "Test.pptx"`,
+		},
+		{
+			name:    "API error",
+			cmd:     &PPTListCmd{Max: 50},
+			root:    &Root{},
+			mockErr: errors.New("API error"),
+			wantErr: true,
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			cmd := &PPTExportCmd{
-				ID:     tt.id,
-				Out:    tt.out,
-				Format: tt.format,
+			mock := &testutil.MockClient{
+				GetFunc: func(ctx context.Context, path string, query url.Values) ([]byte, error) {
+					return tt.mockResp, tt.mockErr
+				},
 			}
-			assert.Equal(t, tt.id, cmd.ID)
-			assert.Equal(t, tt.out, cmd.Out)
-			assert.Equal(t, tt.format, cmd.Format)
-		})
-	}
-}
+			tt.root.ClientFactory = mockClientFactory(mock)
 
-func TestPPTExportCmd_DefaultFormat(t *testing.T) {
-	cmd := &PPTExportCmd{
-		ID:     "ppt-123",
-		Out:    "/output/file.pptx",
-		Format: "pptx", // Default
-	}
-	assert.Equal(t, "pptx", cmd.Format)
-}
+			var output string
+			err := error(nil)
+			output = captureOutput(func() {
+				err = tt.cmd.Run(tt.root)
+			})
 
-// Tests for PPTCopyCmd
-func TestPPTCopyCmd_Fields(t *testing.T) {
-	cmd := &PPTCopyCmd{
-		ID:     "ppt-123",
-		Name:   "Copy of Presentation.pptx",
-		Folder: "folder-456",
-	}
-
-	assert.Equal(t, "ppt-123", cmd.ID)
-	assert.Equal(t, "Copy of Presentation.pptx", cmd.Name)
-	assert.Equal(t, "folder-456", cmd.Folder)
-}
-
-func TestPPTCopyCmd_NoFolder(t *testing.T) {
-	cmd := &PPTCopyCmd{
-		ID:   "ppt-123",
-		Name: "Copy.pptx",
-	}
-
-	assert.Empty(t, cmd.Folder)
-}
-
-// Tests for PPTCreateCmd
-func TestPPTCreateCmd_Fields(t *testing.T) {
-	cmd := &PPTCreateCmd{
-		Name:   "New Presentation.pptx",
-		Folder: "folder-123",
-	}
-
-	assert.Equal(t, "New Presentation.pptx", cmd.Name)
-	assert.Equal(t, "folder-123", cmd.Folder)
-}
-
-func TestPPTCreateCmd_AutoExtension(t *testing.T) {
-	tests := []struct {
-		name     string
-		input    string
-		expected string
-	}{
-		{"already has pptx", "Slides.pptx", "Slides.pptx"},
-		{"no extension", "Slides", "Slides.pptx"},
-		{"uppercase pptx", "Slides.PPTX", "Slides.PPTX"},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			name := tt.input
-			// Logic from the command
-			if !strings.HasSuffix(strings.ToLower(name), ".pptx") {
-				name += ".pptx"
-			}
-
-			if tt.name == "no extension" {
-				assert.Equal(t, "Slides.pptx", name)
+			if tt.wantErr {
+				assert.Error(t, err)
 			} else {
-				assert.Equal(t, tt.input, name)
+				assert.NoError(t, err)
+				if tt.wantInOut != "" {
+					assert.Contains(t, output, tt.wantInOut)
+				}
 			}
 		})
 	}
 }
 
-// Tests for PPT presentation filtering (from drive search)
-func TestPPTList_FilterPptx(t *testing.T) {
-	items := []DriveItem{
-		{Name: "quarterly.pptx", ID: "id-1"},
-		{Name: "data.xlsx", ID: "id-2"},
-		{Name: "slides.PPTX", ID: "id-3"},
-		{Name: "document.docx", ID: "id-4"},
-		{Name: "pitch.pptx", ID: "id-5"},
-	}
-
-	var presentations []DriveItem
-	for _, item := range items {
-		if strings.HasSuffix(strings.ToLower(item.Name), ".pptx") {
-			presentations = append(presentations, item)
-		}
-	}
-
-	assert.Len(t, presentations, 3)
-	assert.Equal(t, "quarterly.pptx", presentations[0].Name)
-	assert.Equal(t, "slides.PPTX", presentations[1].Name)
-	assert.Equal(t, "pitch.pptx", presentations[2].Name)
-}
-
-// Tests for PPT presentation output
-func TestPPTList_Output(t *testing.T) {
-	presentations := []DriveItem{
-		{
-			ID:                   "ppt-1-long-id-for-testing",
-			Name:                 "Q4 Review.pptx",
-			Size:                 5242880,
-			LastModifiedDateTime: "2024-01-15T10:30:00Z",
-		},
-		{
-			ID:                   "ppt-2-long-id-for-testing",
-			Name:                 "Product Launch.pptx",
-			Size:                 10485760,
-			LastModifiedDateTime: "2024-01-14T15:00:00Z",
-		},
-	}
-
-	// Capture stdout
-	old := os.Stdout
-	r, w, _ := os.Pipe()
-	os.Stdout = w
-
-	for _, ppt := range presentations {
-		os.Stdout.WriteString("📊 " + ppt.Name + " " + formatSize(ppt.Size) + "\n")
-	}
-
-	w.Close()
-	os.Stdout = old
-
-	var buf bytes.Buffer
-	buf.ReadFrom(r)
-	output := buf.String()
-
-	assert.Contains(t, output, "📊")
-	assert.Contains(t, output, "Q4 Review.pptx")
-	assert.Contains(t, output, "Product Launch.pptx")
-	assert.Contains(t, output, "5.0 MB")
-	assert.Contains(t, output, "10.0 MB")
-}
-
-// Tests for PPT metadata output
-func TestPPTGet_MetadataOutput(t *testing.T) {
-	item := DriveItem{
-		ID:                   "ppt-metadata-test",
-		Name:                 "Important Presentation.pptx",
-		Size:                 15728640,
-		CreatedDateTime:      "2024-01-01T08:00:00Z",
-		LastModifiedDateTime: "2024-01-15T16:30:00Z",
-		WebURL:               "https://example.com/ppt",
-	}
-
-	// Capture stdout
-	old := os.Stdout
-	r, w, _ := os.Pipe()
-	os.Stdout = w
-
-	os.Stdout.WriteString("Name:     " + item.Name + "\n")
-	os.Stdout.WriteString("Size:     " + formatSize(item.Size) + "\n")
-	os.Stdout.WriteString("Created:  " + item.CreatedDateTime + "\n")
-	os.Stdout.WriteString("Modified: " + item.LastModifiedDateTime + "\n")
-	os.Stdout.WriteString("URL:      " + item.WebURL + "\n")
-
-	w.Close()
-	os.Stdout = old
-
-	var buf bytes.Buffer
-	buf.ReadFrom(r)
-	output := buf.String()
-
-	assert.Contains(t, output, "Name:     Important Presentation.pptx")
-	assert.Contains(t, output, "Size:     15.0 MB")
-	assert.Contains(t, output, "Created:")
-	assert.Contains(t, output, "Modified:")
-	assert.Contains(t, output, "URL:")
-}
-
-// Tests for JSON output
-func TestPPTList_JSONOutput(t *testing.T) {
-	presentations := []DriveItem{
-		{ID: "ppt-1", Name: "Test.pptx", Size: 2048},
-	}
-
-	// Capture stdout
-	old := os.Stdout
-	r, w, _ := os.Pipe()
-	os.Stdout = w
-
-	err := outputJSON(presentations)
-
-	w.Close()
-	os.Stdout = old
-
-	var buf bytes.Buffer
-	buf.ReadFrom(r)
-	output := buf.String()
-
-	require.NoError(t, err)
-	assert.Contains(t, output, `"id": "ppt-1"`)
-	assert.Contains(t, output, `"name": "Test.pptx"`)
-}
-
-// Tests for export format handling
-func TestPPTExport_FormatPath(t *testing.T) {
+func TestPPTGetCmd_Run(t *testing.T) {
 	tests := []struct {
-		name       string
-		format     string
-		containsPdf bool
+		name      string
+		cmd       *PPTGetCmd
+		root      *Root
+		mockResp  []byte
+		mockErr   error
+		wantErr   bool
+		wantInOut string
 	}{
-		{"pptx format", "pptx", false},
-		{"pdf format", "pdf", true},
-		{"PPTX uppercase", "PPTX", false},
-		{"PDF uppercase", "PDF", true},
+		{
+			name: "successful get presentation",
+			cmd:  &PPTGetCmd{ID: "file-123"},
+			root: &Root{},
+			mockResp: mustJSON(map[string]interface{}{
+				"id":                   "file-123",
+				"name":                 "Presentation.pptx",
+				"size":                 8192,
+				"createdDateTime":      "2024-01-10T08:00:00Z",
+				"lastModifiedDateTime": "2024-01-15T10:30:00Z",
+				"webUrl":               "https://onedrive.com/file",
+			}),
+			wantInOut: "Presentation.pptx",
+		},
+		{
+			name: "JSON output",
+			cmd:  &PPTGetCmd{ID: "file-123"},
+			root: &Root{JSON: true},
+			mockResp: mustJSON(map[string]interface{}{
+				"id":   "file-123",
+				"name": "Test.pptx",
+			}),
+			wantInOut: `"name": "Test.pptx"`,
+		},
+		{
+			name:    "presentation not found",
+			cmd:     &PPTGetCmd{ID: "invalid"},
+			root:    &Root{},
+			mockErr: errors.New("ResourceNotFound"),
+			wantErr: true,
+		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			format := strings.ToLower(tt.format)
-			isPdf := format == "pdf"
-			assert.Equal(t, tt.containsPdf, isPdf)
+			mock := &testutil.MockClient{
+				GetFunc: func(ctx context.Context, path string, query url.Values) ([]byte, error) {
+					return tt.mockResp, tt.mockErr
+				},
+			}
+			tt.root.ClientFactory = mockClientFactory(mock)
+
+			var output string
+			err := error(nil)
+			output = captureOutput(func() {
+				err = tt.cmd.Run(tt.root)
+			})
+
+			if tt.wantErr {
+				assert.Error(t, err)
+			} else {
+				assert.NoError(t, err)
+				if tt.wantInOut != "" {
+					assert.Contains(t, output, tt.wantInOut)
+				}
+			}
 		})
 	}
 }
 
-// Tests for export success output
-func TestPPTExport_SuccessOutput(t *testing.T) {
-	// Capture stdout
-	old := os.Stdout
-	r, w, _ := os.Pipe()
-	os.Stdout = w
+func TestPPTExportCmd_Run(t *testing.T) {
+	tmpDir := t.TempDir()
 
-	os.Stdout.WriteString("✓ Exported\n")
-	os.Stdout.WriteString("  Format: PPTX\n")
-	os.Stdout.WriteString("  Saved to: /output/presentation.pptx\n")
-
-	w.Close()
-	os.Stdout = old
-
-	var buf bytes.Buffer
-	buf.ReadFrom(r)
-	output := buf.String()
-
-	assert.Contains(t, output, "✓ Exported")
-	assert.Contains(t, output, "Format: PPTX")
-	assert.Contains(t, output, "Saved to:")
-}
-
-// Tests for copy success output
-func TestPPTCopy_SuccessOutput(t *testing.T) {
-	// Capture stdout
-	old := os.Stdout
-	r, w, _ := os.Pipe()
-	os.Stdout = w
-
-	os.Stdout.WriteString("✓ Copy initiated\n")
-	os.Stdout.WriteString("  Name: Copy of Presentation.pptx\n")
-
-	w.Close()
-	os.Stdout = old
-
-	var buf bytes.Buffer
-	buf.ReadFrom(r)
-	output := buf.String()
-
-	assert.Contains(t, output, "✓ Copy initiated")
-	assert.Contains(t, output, "Name:")
-}
-
-// Tests for create success output
-func TestPPTCreate_SuccessOutput(t *testing.T) {
-	item := DriveItem{
-		ID:   "new-ppt-123",
-		Name: "NewPresentation.pptx",
-	}
-
-	// Capture stdout
-	old := os.Stdout
-	r, w, _ := os.Pipe()
-	os.Stdout = w
-
-	os.Stdout.WriteString("✓ Presentation created\n")
-	os.Stdout.WriteString("  Name: " + item.Name + "\n")
-
-	w.Close()
-	os.Stdout = old
-
-	var buf bytes.Buffer
-	buf.ReadFrom(r)
-	output := buf.String()
-
-	assert.Contains(t, output, "✓ Presentation created")
-	assert.Contains(t, output, "Name: NewPresentation.pptx")
-}
-
-// Edge cases
-func TestPPTList_EmptyResult(t *testing.T) {
-	var presentations []DriveItem
-	assert.Empty(t, presentations)
-}
-
-func TestPPTList_NoPptxFiles(t *testing.T) {
-	items := []DriveItem{
-		{Name: "data.xlsx"},
-		{Name: "document.docx"},
-	}
-
-	var presentations []DriveItem
-	for _, item := range items {
-		if strings.HasSuffix(strings.ToLower(item.Name), ".pptx") {
-			presentations = append(presentations, item)
+	t.Run("export pptx", func(t *testing.T) {
+		outFile := filepath.Join(tmpDir, "export.pptx")
+		mock := &testutil.MockClient{
+			GetFunc: func(ctx context.Context, path string, query url.Values) ([]byte, error) {
+				return []byte("pptx content"), nil
+			},
 		}
-	}
+		root := &Root{ClientFactory: mockClientFactory(mock)}
+		cmd := &PPTExportCmd{ID: "file-123", Out: outFile, Format: "pptx"}
 
-	assert.Empty(t, presentations)
+		output := captureOutput(func() {
+			err := cmd.Run(root)
+			require.NoError(t, err)
+		})
+
+		assert.Contains(t, output, "Exported")
+		assert.FileExists(t, outFile)
+	})
+
+	t.Run("export pdf", func(t *testing.T) {
+		outFile := filepath.Join(tmpDir, "export.pdf")
+		mock := &testutil.MockClient{
+			GetFunc: func(ctx context.Context, path string, query url.Values) ([]byte, error) {
+				return []byte("pdf content"), nil
+			},
+		}
+		root := &Root{ClientFactory: mockClientFactory(mock)}
+		cmd := &PPTExportCmd{ID: "file-123", Out: outFile, Format: "pdf"}
+
+		output := captureOutput(func() {
+			err := cmd.Run(root)
+			require.NoError(t, err)
+		})
+
+		assert.Contains(t, output, "Exported")
+		assert.Contains(t, output, "PDF")
+	})
+
+	t.Run("JSON output", func(t *testing.T) {
+		outFile := filepath.Join(tmpDir, "export2.pptx")
+		mock := &testutil.MockClient{
+			GetFunc: func(ctx context.Context, path string, query url.Values) ([]byte, error) {
+				return []byte("content"), nil
+			},
+		}
+		root := &Root{JSON: true, ClientFactory: mockClientFactory(mock)}
+		cmd := &PPTExportCmd{ID: "file-123", Out: outFile, Format: "pptx"}
+
+		output := captureOutput(func() {
+			err := cmd.Run(root)
+			require.NoError(t, err)
+		})
+
+		assert.Contains(t, output, `"success": true`)
+	})
+
+	t.Run("API error", func(t *testing.T) {
+		mock := &testutil.MockClient{
+			GetFunc: func(ctx context.Context, path string, query url.Values) ([]byte, error) {
+				return nil, errors.New("API error")
+			},
+		}
+		root := &Root{ClientFactory: mockClientFactory(mock)}
+		cmd := &PPTExportCmd{ID: "file-123", Out: "/tmp/out.pptx", Format: "pptx"}
+
+		err := cmd.Run(root)
+		assert.Error(t, err)
+	})
 }
 
-func TestPPTExport_JSONOutputFormat(t *testing.T) {
-	result := map[string]interface{}{
-		"success": true,
-		"path":    "/output/presentation.pptx",
-		"format":  "pptx",
+func TestPPTCopyCmd_Run(t *testing.T) {
+	tests := []struct {
+		name      string
+		cmd       *PPTCopyCmd
+		root      *Root
+		mockErr   error
+		wantErr   bool
+		wantInOut string
+	}{
+		{
+			name:      "successful copy",
+			cmd:       &PPTCopyCmd{ID: "file-123", Name: "Copy.pptx"},
+			root:      &Root{},
+			wantInOut: "Copy initiated",
+		},
+		{
+			name:      "copy with folder",
+			cmd:       &PPTCopyCmd{ID: "file-123", Name: "Copy.pptx", Folder: "folder-123"},
+			root:      &Root{},
+			wantInOut: "Copy initiated",
+		},
+		{
+			name: "JSON output",
+			cmd:  &PPTCopyCmd{ID: "file-123", Name: "Copy.pptx"},
+			root: &Root{JSON: true},
+			wantInOut: `"success": true`,
+		},
+		{
+			name:    "API error",
+			cmd:     &PPTCopyCmd{ID: "file-123", Name: "Copy.pptx"},
+			root:    &Root{},
+			mockErr: errors.New("API error"),
+			wantErr: true,
+		},
 	}
 
-	data, err := json.Marshal(result)
-	require.NoError(t, err)
-	assert.Contains(t, string(data), `"success":true`)
-	assert.Contains(t, string(data), `"path":"/output/presentation.pptx"`)
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			mock := &testutil.MockClient{
+				PostFunc: func(ctx context.Context, path string, body interface{}) ([]byte, error) {
+					return []byte(`{}`), tt.mockErr
+				},
+			}
+			tt.root.ClientFactory = mockClientFactory(mock)
+
+			var output string
+			err := error(nil)
+			output = captureOutput(func() {
+				err = tt.cmd.Run(tt.root)
+			})
+
+			if tt.wantErr {
+				assert.Error(t, err)
+			} else {
+				assert.NoError(t, err)
+				if tt.wantInOut != "" {
+					assert.Contains(t, output, tt.wantInOut)
+				}
+			}
+		})
+	}
 }
 
-// Tests for large presentation sizes
-func TestPPTList_LargePresentations(t *testing.T) {
-	sizes := []int64{
-		52428800,   // 50 MB
-		104857600,  // 100 MB
-		524288000,  // 500 MB
+func TestPPTCreateCmd_Run(t *testing.T) {
+	tests := []struct {
+		name      string
+		cmd       *PPTCreateCmd
+		root      *Root
+		mockResp  []byte
+		mockErr   error
+		wantErr   bool
+		wantInOut string
+	}{
+		{
+			name: "successful create",
+			cmd:  &PPTCreateCmd{Name: "NewPresentation"},
+			root: &Root{},
+			mockResp: mustJSON(map[string]interface{}{
+				"id":   "file-new-123",
+				"name": "NewPresentation.pptx",
+			}),
+			wantInOut: "Presentation created",
+		},
+		{
+			name: "create with .pptx extension",
+			cmd:  &PPTCreateCmd{Name: "Test.pptx"},
+			root: &Root{},
+			mockResp: mustJSON(map[string]interface{}{
+				"id":   "file-new-456",
+				"name": "Test.pptx",
+			}),
+			wantInOut: "Presentation created",
+		},
+		{
+			name: "create in folder",
+			cmd:  &PPTCreateCmd{Name: "FolderPPT", Folder: "folder-123"},
+			root: &Root{},
+			mockResp: mustJSON(map[string]interface{}{
+				"id":   "file-new-789",
+				"name": "FolderPPT.pptx",
+			}),
+			wantInOut: "Presentation created",
+		},
+		{
+			name: "JSON output",
+			cmd:  &PPTCreateCmd{Name: "Test"},
+			root: &Root{JSON: true},
+			mockResp: mustJSON(map[string]interface{}{
+				"id":   "file-new",
+				"name": "Test.pptx",
+			}),
+			wantInOut: `"name": "Test.pptx"`,
+		},
+		{
+			name:    "API error",
+			cmd:     &PPTCreateCmd{Name: "Fail"},
+			root:    &Root{},
+			mockErr: errors.New("API error"),
+			wantErr: true,
+		},
 	}
 
-	for _, size := range sizes {
-		formatted := formatSize(size)
-		assert.NotEmpty(t, formatted)
-		assert.Contains(t, formatted, "MB")
-	}
-}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			mock := &testutil.MockClient{
+				PutFunc: func(ctx context.Context, path string, data []byte, contentType string) ([]byte, error) {
+					return tt.mockResp, tt.mockErr
+				},
+			}
+			tt.root.ClientFactory = mockClientFactory(mock)
 
-// Tests for PPT with special characters in name
-func TestPPTList_SpecialCharacters(t *testing.T) {
-	items := []DriveItem{
-		{Name: "Q1 & Q2 Review.pptx"},
-		{Name: "Project (Final).pptx"},
-		{Name: "Budget - 2024.pptx"},
-	}
+			var output string
+			err := error(nil)
+			output = captureOutput(func() {
+				err = tt.cmd.Run(tt.root)
+			})
 
-	for _, item := range items {
-		assert.True(t, strings.HasSuffix(strings.ToLower(item.Name), ".pptx"))
+			if tt.wantErr {
+				assert.Error(t, err)
+			} else {
+				assert.NoError(t, err)
+				if tt.wantInOut != "" {
+					assert.Contains(t, output, tt.wantInOut)
+				}
+			}
+		})
 	}
 }

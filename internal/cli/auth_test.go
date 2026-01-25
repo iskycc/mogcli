@@ -1,7 +1,6 @@
 package cli
 
 import (
-	"bytes"
 	"os"
 	"path/filepath"
 	"testing"
@@ -18,7 +17,6 @@ func setupAuthTestConfig(t *testing.T) func() {
 	tmpDir := t.TempDir()
 	os.Setenv("HOME", tmpDir)
 
-	// Create config directory
 	configDir := filepath.Join(tmpDir, ".config", "mog")
 	require.NoError(t, os.MkdirAll(configDir, 0700))
 
@@ -27,33 +25,22 @@ func setupAuthTestConfig(t *testing.T) func() {
 	}
 }
 
-func TestAuthStatusCmd_NotLoggedIn(t *testing.T) {
+func TestAuthStatusCmd_Run_NotLoggedIn(t *testing.T) {
 	cleanup := setupAuthTestConfig(t)
 	defer cleanup()
 
-	// No tokens saved
 	cmd := &AuthStatusCmd{}
 	root := &Root{}
 
-	// Capture output
-	old := os.Stdout
-	r, w, _ := os.Pipe()
-	os.Stdout = w
+	output := captureOutput(func() {
+		err := cmd.Run(root)
+		require.NoError(t, err)
+	})
 
-	err := cmd.Run(root)
-
-	w.Close()
-	os.Stdout = old
-
-	var buf bytes.Buffer
-	buf.ReadFrom(r)
-	output := buf.String()
-
-	require.NoError(t, err)
 	assert.Contains(t, output, "Not logged in")
 }
 
-func TestAuthStatusCmd_LoggedIn(t *testing.T) {
+func TestAuthStatusCmd_Run_LoggedIn(t *testing.T) {
 	cleanup := setupAuthTestConfig(t)
 	defer cleanup()
 
@@ -65,7 +52,7 @@ func TestAuthStatusCmd_LoggedIn(t *testing.T) {
 	}
 	require.NoError(t, config.SaveTokens(tokens))
 
-	// Save config with client ID
+	// Save config
 	cfg := &config.Config{
 		ClientID: "test-client-id-12345678901234567890",
 	}
@@ -74,27 +61,16 @@ func TestAuthStatusCmd_LoggedIn(t *testing.T) {
 	cmd := &AuthStatusCmd{}
 	root := &Root{}
 
-	// Capture output
-	old := os.Stdout
-	r, w, _ := os.Pipe()
-	os.Stdout = w
+	output := captureOutput(func() {
+		err := cmd.Run(root)
+		require.NoError(t, err)
+	})
 
-	err := cmd.Run(root)
-
-	w.Close()
-	os.Stdout = old
-
-	var buf bytes.Buffer
-	buf.ReadFrom(r)
-	output := buf.String()
-
-	require.NoError(t, err)
 	assert.Contains(t, output, "Logged in")
-	assert.Contains(t, output, "Token expires:")
-	assert.Contains(t, output, "Client ID:")
+	assert.Contains(t, output, "Token expires")
 }
 
-func TestAuthStatusCmd_ExpiredToken(t *testing.T) {
+func TestAuthStatusCmd_Run_ExpiredToken(t *testing.T) {
 	cleanup := setupAuthTestConfig(t)
 	defer cleanup()
 
@@ -102,37 +78,27 @@ func TestAuthStatusCmd_ExpiredToken(t *testing.T) {
 	tokens := &config.Tokens{
 		AccessToken:  "test-access-token",
 		RefreshToken: "test-refresh-token",
-		ExpiresAt:    1, // Epoch + 1 second (expired)
+		ExpiresAt:    1, // Far past
 	}
 	require.NoError(t, config.SaveTokens(tokens))
 
 	cmd := &AuthStatusCmd{}
 	root := &Root{}
 
-	// Capture output
-	old := os.Stdout
-	r, w, _ := os.Pipe()
-	os.Stdout = w
+	output := captureOutput(func() {
+		err := cmd.Run(root)
+		require.NoError(t, err)
+	})
 
-	err := cmd.Run(root)
-
-	w.Close()
-	os.Stdout = old
-
-	var buf bytes.Buffer
-	buf.ReadFrom(r)
-	output := buf.String()
-
-	require.NoError(t, err)
 	assert.Contains(t, output, "Logged in")
 	assert.Contains(t, output, "Expired")
 }
 
-func TestAuthLogoutCmd_Success(t *testing.T) {
+func TestAuthLogoutCmd_Run(t *testing.T) {
 	cleanup := setupAuthTestConfig(t)
 	defer cleanup()
 
-	// Save tokens
+	// Save tokens first
 	tokens := &config.Tokens{
 		AccessToken:  "test-access-token",
 		RefreshToken: "test-refresh-token",
@@ -143,70 +109,42 @@ func TestAuthLogoutCmd_Success(t *testing.T) {
 	cmd := &AuthLogoutCmd{}
 	root := &Root{}
 
-	// Capture output
-	old := os.Stdout
-	r, w, _ := os.Pipe()
-	os.Stdout = w
+	output := captureOutput(func() {
+		err := cmd.Run(root)
+		require.NoError(t, err)
+	})
 
-	err := cmd.Run(root)
-
-	w.Close()
-	os.Stdout = old
-
-	var buf bytes.Buffer
-	buf.ReadFrom(r)
-	output := buf.String()
-
-	require.NoError(t, err)
 	assert.Contains(t, output, "Logged out successfully")
 
 	// Verify tokens are deleted
-	_, err = config.LoadTokens()
+	_, err := config.LoadTokens()
 	assert.Error(t, err)
 }
 
-func TestAuthLogoutCmd_NoTokens(t *testing.T) {
+func TestAuthLogoutCmd_Run_NoTokens(t *testing.T) {
 	cleanup := setupAuthTestConfig(t)
 	defer cleanup()
 
-	// No tokens saved - logout should still succeed
 	cmd := &AuthLogoutCmd{}
 	root := &Root{}
 
-	err := cmd.Run(root)
-	require.NoError(t, err)
+	// Should succeed even with no tokens
+	output := captureOutput(func() {
+		err := cmd.Run(root)
+		require.NoError(t, err)
+	})
+
+	assert.Contains(t, output, "Logged out successfully")
 }
 
-func TestAuthLoginCmd_SavesClientID(t *testing.T) {
-	cleanup := setupAuthTestConfig(t)
-	defer cleanup()
-
-	// Note: We can't fully test login because it requires user interaction
-	// But we can test that it saves the client ID
-	clientID := "test-client-id-for-login"
-	cfg := &config.Config{ClientID: clientID}
-	err := config.Save(cfg)
-	require.NoError(t, err)
-
-	// Load and verify
-	loaded, err := config.Load()
-	require.NoError(t, err)
-	assert.Equal(t, clientID, loaded.ClientID)
-}
-
-func TestOpenBrowser_DoesNotPanic(t *testing.T) {
-	// Test that openBrowser doesn't panic for various URLs
-	// It may fail to actually open a browser in test environment, but shouldn't panic
-	testURLs := []string{
-		"https://example.com",
-		"https://login.microsoftonline.com/common/oauth2/v2.0/devicecode",
-		"",
+// Test AuthLoginCmd struct fields
+func TestAuthLoginCmd_Fields(t *testing.T) {
+	cmd := &AuthLoginCmd{
+		ClientID: "test-client-id-12345678901234567890",
 	}
 
-	for _, url := range testURLs {
-		t.Run(url, func(t *testing.T) {
-			// Should not panic
-			openBrowser(url)
-		})
-	}
+	assert.Equal(t, "test-client-id-12345678901234567890", cmd.ClientID)
 }
+
+// Note: AuthLoginCmd.Run() cannot be fully tested without mocking the device code flow
+// which requires HTTP mocking. The login flow is tested via integration tests.

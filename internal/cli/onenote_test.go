@@ -1,427 +1,682 @@
 package cli
 
 import (
-	"bytes"
+	"context"
 	"encoding/json"
-	"os"
-	"path/filepath"
+	"errors"
+	"net/url"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"github.com/visionik/mogcli/internal/config"
+	"github.com/visionik/mogcli/internal/testutil"
 )
 
-func setupOneNoteTestConfig(t *testing.T) func() {
-	t.Helper()
-
-	origHome := os.Getenv("HOME")
-	tmpDir := t.TempDir()
-	os.Setenv("HOME", tmpDir)
-
-	configDir := filepath.Join(tmpDir, ".config", "mog")
-	require.NoError(t, os.MkdirAll(configDir, 0700))
-
-	tokens := &config.Tokens{
-		AccessToken:  "test-access-token",
-		RefreshToken: "test-refresh-token",
-		ExpiresAt:    9999999999,
-	}
-	require.NoError(t, config.SaveTokens(tokens))
-
-	cfg := &config.Config{ClientID: "test-client-id-12345678901234567890"}
-	require.NoError(t, config.Save(cfg))
-
-	return func() {
-		os.Setenv("HOME", origHome)
-	}
-}
-
-// Tests for Notebook type
-func TestNotebook_Unmarshal(t *testing.T) {
+func TestOneNoteNotebooksCmd_Run(t *testing.T) {
 	tests := []struct {
-		name        string
-		json        string
-		displayName string
+		name      string
+		root      *Root
+		mockResp  []byte
+		mockErr   error
+		wantErr   bool
+		wantInOut string
 	}{
 		{
-			name:        "personal notebook",
-			json:        `{"id": "nb-123", "displayName": "Personal Notes"}`,
-			displayName: "Personal Notes",
+			name: "successful list notebooks",
+			root: &Root{},
+			mockResp: mustJSON(map[string]interface{}{
+				"value": []map[string]interface{}{
+					{"id": "nb-123", "displayName": "Work Notebook"},
+					{"id": "nb-456", "displayName": "Personal"},
+				},
+			}),
+			wantInOut: "Work Notebook",
 		},
 		{
-			name:        "work notebook",
-			json:        `{"id": "nb-456", "displayName": "Work Projects"}`,
-			displayName: "Work Projects",
+			name: "JSON output",
+			root: &Root{JSON: true},
+			mockResp: mustJSON(map[string]interface{}{
+				"value": []map[string]interface{}{
+					{"id": "nb-123", "displayName": "Notebook"},
+				},
+			}),
+			wantInOut: `"displayName": "Notebook"`,
 		},
 		{
-			name:        "empty name",
-			json:        `{"id": "nb-789", "displayName": ""}`,
-			displayName: "",
+			name:    "API error",
+			root:    &Root{},
+			mockErr: errors.New("API error"),
+			wantErr: true,
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			var notebook Notebook
-			err := json.Unmarshal([]byte(tt.json), &notebook)
-			require.NoError(t, err)
-			assert.Equal(t, tt.displayName, notebook.DisplayName)
-		})
-	}
-}
-
-// Tests for Section type
-func TestSection_Unmarshal(t *testing.T) {
-	tests := []struct {
-		name        string
-		json        string
-		displayName string
-	}{
-		{
-			name:        "meeting notes section",
-			json:        `{"id": "sec-123", "displayName": "Meeting Notes"}`,
-			displayName: "Meeting Notes",
-		},
-		{
-			name:        "ideas section",
-			json:        `{"id": "sec-456", "displayName": "Ideas"}`,
-			displayName: "Ideas",
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			var section Section
-			err := json.Unmarshal([]byte(tt.json), &section)
-			require.NoError(t, err)
-			assert.Equal(t, tt.displayName, section.DisplayName)
-		})
-	}
-}
-
-// Tests for Page type
-func TestPage_Unmarshal(t *testing.T) {
-	tests := []struct {
-		name  string
-		json  string
-		title string
-	}{
-		{
-			name:  "titled page",
-			json:  `{"id": "page-123", "title": "Weekly Review"}`,
-			title: "Weekly Review",
-		},
-		{
-			name:  "untitled page",
-			json:  `{"id": "page-456", "title": ""}`,
-			title: "",
-		},
-		{
-			name:  "page with special characters",
-			json:  `{"id": "page-789", "title": "Q4 Planning & Goals"}`,
-			title: "Q4 Planning & Goals",
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			var page Page
-			err := json.Unmarshal([]byte(tt.json), &page)
-			require.NoError(t, err)
-			assert.Equal(t, tt.title, page.Title)
-		})
-	}
-}
-
-// Tests for OneNoteNotebooksCmd
-func TestOneNoteNotebooksCmd_Struct(t *testing.T) {
-	cmd := &OneNoteNotebooksCmd{}
-	assert.NotNil(t, cmd)
-}
-
-// Tests for OneNoteSectionsCmd
-func TestOneNoteSectionsCmd_Fields(t *testing.T) {
-	cmd := &OneNoteSectionsCmd{
-		NotebookID: "notebook-123",
-	}
-	assert.Equal(t, "notebook-123", cmd.NotebookID)
-}
-
-// Tests for OneNotePagesCmd
-func TestOneNotePagesCmd_Fields(t *testing.T) {
-	cmd := &OneNotePagesCmd{
-		SectionID: "section-123",
-	}
-	assert.Equal(t, "section-123", cmd.SectionID)
-}
-
-// Tests for OneNoteGetCmd
-func TestOneNoteGetCmd_Fields(t *testing.T) {
-	tests := []struct {
-		name   string
-		pageID string
-		html   bool
-	}{
-		{
-			name:   "text output",
-			pageID: "page-123",
-			html:   false,
-		},
-		{
-			name:   "html output",
-			pageID: "page-456",
-			html:   true,
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			cmd := &OneNoteGetCmd{
-				PageID: tt.pageID,
-				HTML:   tt.html,
+			mock := &testutil.MockClient{
+				GetFunc: func(ctx context.Context, path string, query url.Values) ([]byte, error) {
+					return tt.mockResp, tt.mockErr
+				},
 			}
-			assert.Equal(t, tt.pageID, cmd.PageID)
-			assert.Equal(t, tt.html, cmd.HTML)
+			tt.root.ClientFactory = mockClientFactory(mock)
+
+			cmd := &OneNoteNotebooksCmd{}
+			var output string
+			err := error(nil)
+			output = captureOutput(func() {
+				err = cmd.Run(tt.root)
+			})
+
+			if tt.wantErr {
+				assert.Error(t, err)
+			} else {
+				assert.NoError(t, err)
+				if tt.wantInOut != "" {
+					assert.Contains(t, output, tt.wantInOut)
+				}
+			}
 		})
 	}
 }
 
-// Tests for OneNoteSearchCmd
-func TestOneNoteSearchCmd_Fields(t *testing.T) {
-	cmd := &OneNoteSearchCmd{
-		Query: "project notes",
+func TestOneNoteSectionsCmd_Run(t *testing.T) {
+	tests := []struct {
+		name      string
+		cmd       *OneNoteSectionsCmd
+		root      *Root
+		mockResp  []byte
+		mockErr   error
+		wantErr   bool
+		wantInOut string
+	}{
+		{
+			name: "successful list sections",
+			cmd:  &OneNoteSectionsCmd{NotebookID: "nb-123"},
+			root: &Root{},
+			mockResp: mustJSON(map[string]interface{}{
+				"value": []map[string]interface{}{
+					{"id": "sec-123", "displayName": "Meeting Notes"},
+					{"id": "sec-456", "displayName": "Ideas"},
+				},
+			}),
+			wantInOut: "Meeting Notes",
+		},
+		{
+			name: "JSON output",
+			cmd:  &OneNoteSectionsCmd{NotebookID: "nb-123"},
+			root: &Root{JSON: true},
+			mockResp: mustJSON(map[string]interface{}{
+				"value": []map[string]interface{}{
+					{"id": "sec-123", "displayName": "Section"},
+				},
+			}),
+			wantInOut: `"displayName": "Section"`,
+		},
+		{
+			name:    "API error",
+			cmd:     &OneNoteSectionsCmd{NotebookID: "nb-123"},
+			root:    &Root{},
+			mockErr: errors.New("API error"),
+			wantErr: true,
+		},
 	}
-	assert.Equal(t, "project notes", cmd.Query)
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			mock := &testutil.MockClient{
+				GetFunc: func(ctx context.Context, path string, query url.Values) ([]byte, error) {
+					return tt.mockResp, tt.mockErr
+				},
+			}
+			tt.root.ClientFactory = mockClientFactory(mock)
+
+			var output string
+			err := error(nil)
+			output = captureOutput(func() {
+				err = tt.cmd.Run(tt.root)
+			})
+
+			if tt.wantErr {
+				assert.Error(t, err)
+			} else {
+				assert.NoError(t, err)
+				if tt.wantInOut != "" {
+					assert.Contains(t, output, tt.wantInOut)
+				}
+			}
+		})
+	}
 }
 
-// Tests for notebook output
-func TestNotebook_Output(t *testing.T) {
-	notebooks := []Notebook{
-		{ID: "nb-1-long-id-for-testing-purposes", DisplayName: "Personal"},
-		{ID: "nb-2-long-id-for-testing-purposes", DisplayName: "Work"},
+func TestOneNotePagesCmd_Run(t *testing.T) {
+	tests := []struct {
+		name      string
+		cmd       *OneNotePagesCmd
+		root      *Root
+		mockResp  []byte
+		mockErr   error
+		wantErr   bool
+		wantInOut string
+	}{
+		{
+			name: "successful list pages",
+			cmd:  &OneNotePagesCmd{SectionID: "sec-123"},
+			root: &Root{},
+			mockResp: mustJSON(map[string]interface{}{
+				"value": []map[string]interface{}{
+					{"id": "page-123", "title": "Project Planning"},
+					{"id": "page-456", "title": "Sprint Notes"},
+				},
+			}),
+			wantInOut: "Project Planning",
+		},
+		{
+			name: "JSON output",
+			cmd:  &OneNotePagesCmd{SectionID: "sec-123"},
+			root: &Root{JSON: true},
+			mockResp: mustJSON(map[string]interface{}{
+				"value": []map[string]interface{}{
+					{"id": "page-123", "title": "Page"},
+				},
+			}),
+			wantInOut: `"title": "Page"`,
+		},
+		{
+			name:    "API error",
+			cmd:     &OneNotePagesCmd{SectionID: "sec-123"},
+			root:    &Root{},
+			mockErr: errors.New("API error"),
+			wantErr: true,
+		},
 	}
 
-	// Capture stdout
-	old := os.Stdout
-	r, w, _ := os.Pipe()
-	os.Stdout = w
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			mock := &testutil.MockClient{
+				GetFunc: func(ctx context.Context, path string, query url.Values) ([]byte, error) {
+					return tt.mockResp, tt.mockErr
+				},
+			}
+			tt.root.ClientFactory = mockClientFactory(mock)
 
-	for _, nb := range notebooks {
-		os.Stdout.WriteString(nb.DisplayName + "\n")
+			var output string
+			err := error(nil)
+			output = captureOutput(func() {
+				err = tt.cmd.Run(tt.root)
+			})
+
+			if tt.wantErr {
+				assert.Error(t, err)
+			} else {
+				assert.NoError(t, err)
+				if tt.wantInOut != "" {
+					assert.Contains(t, output, tt.wantInOut)
+				}
+			}
+		})
 	}
-
-	w.Close()
-	os.Stdout = old
-
-	var buf bytes.Buffer
-	buf.ReadFrom(r)
-	output := buf.String()
-
-	assert.Contains(t, output, "Personal")
-	assert.Contains(t, output, "Work")
 }
 
-// Tests for section output
-func TestSection_Output(t *testing.T) {
-	sections := []Section{
-		{ID: "sec-1-long-id-for-testing", DisplayName: "Meetings"},
-		{ID: "sec-2-long-id-for-testing", DisplayName: "Research"},
+func TestOneNoteGetCmd_Run(t *testing.T) {
+	tests := []struct {
+		name      string
+		cmd       *OneNoteGetCmd
+		root      *Root
+		mockResp  []byte
+		mockErr   error
+		wantErr   bool
+		wantInOut string
+	}{
+		{
+			name:     "successful get page content",
+			cmd:      &OneNoteGetCmd{PageID: "page-123"},
+			root:     &Root{},
+			mockResp: []byte("<html><body><p>Page content</p></body></html>"),
+			wantInOut: "Page content",
+		},
+		{
+			name:      "get with HTML output",
+			cmd:       &OneNoteGetCmd{PageID: "page-123", HTML: true},
+			root:      &Root{},
+			mockResp:  []byte("<html><body><p>Page content</p></body></html>"),
+			wantInOut: "<html>",
+		},
+		{
+			name:      "get with JSON flag shows raw",
+			cmd:       &OneNoteGetCmd{PageID: "page-123"},
+			root:      &Root{JSON: true},
+			mockResp:  []byte("<html><body><p>Content</p></body></html>"),
+			wantInOut: "<html>",
+		},
+		{
+			name:    "API error",
+			cmd:     &OneNoteGetCmd{PageID: "page-123"},
+			root:    &Root{},
+			mockErr: errors.New("API error"),
+			wantErr: true,
+		},
 	}
 
-	// Capture stdout
-	old := os.Stdout
-	r, w, _ := os.Pipe()
-	os.Stdout = w
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			mock := &testutil.MockClient{
+				GetFunc: func(ctx context.Context, path string, query url.Values) ([]byte, error) {
+					return tt.mockResp, tt.mockErr
+				},
+			}
+			tt.root.ClientFactory = mockClientFactory(mock)
 
-	for _, s := range sections {
-		os.Stdout.WriteString(s.DisplayName + "\n")
+			var output string
+			err := error(nil)
+			output = captureOutput(func() {
+				err = tt.cmd.Run(tt.root)
+			})
+
+			if tt.wantErr {
+				assert.Error(t, err)
+			} else {
+				assert.NoError(t, err)
+				if tt.wantInOut != "" {
+					assert.Contains(t, output, tt.wantInOut)
+				}
+			}
+		})
 	}
-
-	w.Close()
-	os.Stdout = old
-
-	var buf bytes.Buffer
-	buf.ReadFrom(r)
-	output := buf.String()
-
-	assert.Contains(t, output, "Meetings")
-	assert.Contains(t, output, "Research")
 }
 
-// Tests for page output
-func TestPage_Output(t *testing.T) {
-	pages := []Page{
-		{ID: "page-1-long-id-for-testing", Title: "Weekly Review"},
-		{ID: "page-2-long-id-for-testing", Title: "Project Plan"},
+func TestOneNoteSearchCmd_Run(t *testing.T) {
+	tests := []struct {
+		name      string
+		cmd       *OneNoteSearchCmd
+		root      *Root
+		mockResp  []byte
+		mockErr   error
+		wantErr   bool
+		wantInOut string
+	}{
+		{
+			name: "successful search",
+			cmd:  &OneNoteSearchCmd{Query: "meeting"},
+			root: &Root{},
+			mockResp: mustJSON(map[string]interface{}{
+				"value": []map[string]interface{}{
+					{"id": "page-123", "title": "Meeting Notes"},
+				},
+			}),
+			wantInOut: "Meeting Notes",
+		},
+		{
+			name: "JSON output",
+			cmd:  &OneNoteSearchCmd{Query: "test"},
+			root: &Root{JSON: true},
+			mockResp: mustJSON(map[string]interface{}{
+				"value": []map[string]interface{}{
+					{"id": "page-123", "title": "Test Page"},
+				},
+			}),
+			wantInOut: `"title": "Test Page"`,
+		},
+		{
+			name:    "API error",
+			cmd:     &OneNoteSearchCmd{Query: "test"},
+			root:    &Root{},
+			mockErr: errors.New("API error"),
+			wantErr: true,
+		},
 	}
 
-	// Capture stdout
-	old := os.Stdout
-	r, w, _ := os.Pipe()
-	os.Stdout = w
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			mock := &testutil.MockClient{
+				GetFunc: func(ctx context.Context, path string, query url.Values) ([]byte, error) {
+					return tt.mockResp, tt.mockErr
+				},
+			}
+			tt.root.ClientFactory = mockClientFactory(mock)
 
-	for _, p := range pages {
-		os.Stdout.WriteString(p.Title + "\n")
+			var output string
+			err := error(nil)
+			output = captureOutput(func() {
+				err = tt.cmd.Run(tt.root)
+			})
+
+			if tt.wantErr {
+				assert.Error(t, err)
+			} else {
+				assert.NoError(t, err)
+				if tt.wantInOut != "" {
+					assert.Contains(t, output, tt.wantInOut)
+				}
+			}
+		})
 	}
-
-	w.Close()
-	os.Stdout = old
-
-	var buf bytes.Buffer
-	buf.ReadFrom(r)
-	output := buf.String()
-
-	assert.Contains(t, output, "Weekly Review")
-	assert.Contains(t, output, "Project Plan")
 }
 
-// Tests for JSON output
-func TestNotebook_JSONOutput(t *testing.T) {
-	notebook := Notebook{
-		ID:          "nb-json-test",
-		DisplayName: "JSON Test Notebook",
+func TestOneNoteCreateNotebookCmd_Run(t *testing.T) {
+	tests := []struct {
+		name      string
+		cmd       *OneNoteCreateNotebookCmd
+		root      *Root
+		mockResp  []byte
+		mockErr   error
+		wantErr   bool
+		wantInOut string
+	}{
+		{
+			name: "successful create notebook",
+			cmd:  &OneNoteCreateNotebookCmd{Name: "New Notebook"},
+			root: &Root{},
+			mockResp: mustJSON(map[string]interface{}{
+				"id":          "nb-new-123",
+				"displayName": "New Notebook",
+			}),
+			wantInOut: "Notebook created",
+		},
+		{
+			name: "JSON output",
+			cmd:  &OneNoteCreateNotebookCmd{Name: "Test"},
+			root: &Root{JSON: true},
+			mockResp: mustJSON(map[string]interface{}{
+				"id":          "nb-new",
+				"displayName": "Test",
+			}),
+			wantInOut: `"displayName": "Test"`,
+		},
+		{
+			name:    "API error",
+			cmd:     &OneNoteCreateNotebookCmd{Name: "Fail"},
+			root:    &Root{},
+			mockErr: errors.New("API error"),
+			wantErr: true,
+		},
 	}
 
-	// Capture stdout
-	old := os.Stdout
-	r, w, _ := os.Pipe()
-	os.Stdout = w
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			mock := &testutil.MockClient{
+				PostFunc: func(ctx context.Context, path string, body interface{}) ([]byte, error) {
+					return tt.mockResp, tt.mockErr
+				},
+			}
+			tt.root.ClientFactory = mockClientFactory(mock)
 
-	err := outputJSON(notebook)
+			var output string
+			err := error(nil)
+			output = captureOutput(func() {
+				err = tt.cmd.Run(tt.root)
+			})
 
-	w.Close()
-	os.Stdout = old
+			if tt.wantErr {
+				assert.Error(t, err)
+			} else {
+				assert.NoError(t, err)
+				if tt.wantInOut != "" {
+					assert.Contains(t, output, tt.wantInOut)
+				}
+			}
+		})
+	}
+}
 
-	var buf bytes.Buffer
-	buf.ReadFrom(r)
-	output := buf.String()
+func TestOneNoteCreateSectionCmd_Run(t *testing.T) {
+	tests := []struct {
+		name      string
+		cmd       *OneNoteCreateSectionCmd
+		root      *Root
+		mockResp  []byte
+		mockErr   error
+		wantErr   bool
+		wantInOut string
+	}{
+		{
+			name: "successful create section",
+			cmd:  &OneNoteCreateSectionCmd{NotebookID: "nb-123", Name: "New Section"},
+			root: &Root{},
+			mockResp: mustJSON(map[string]interface{}{
+				"id":          "sec-new-123",
+				"displayName": "New Section",
+			}),
+			wantInOut: "Section created",
+		},
+		{
+			name: "JSON output",
+			cmd:  &OneNoteCreateSectionCmd{NotebookID: "nb-123", Name: "Test"},
+			root: &Root{JSON: true},
+			mockResp: mustJSON(map[string]interface{}{
+				"id":          "sec-new",
+				"displayName": "Test",
+			}),
+			wantInOut: `"displayName": "Test"`,
+		},
+		{
+			name:    "API error",
+			cmd:     &OneNoteCreateSectionCmd{NotebookID: "nb-123", Name: "Fail"},
+			root:    &Root{},
+			mockErr: errors.New("API error"),
+			wantErr: true,
+		},
+	}
 
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			mock := &testutil.MockClient{
+				PostFunc: func(ctx context.Context, path string, body interface{}) ([]byte, error) {
+					return tt.mockResp, tt.mockErr
+				},
+			}
+			tt.root.ClientFactory = mockClientFactory(mock)
+
+			var output string
+			err := error(nil)
+			output = captureOutput(func() {
+				err = tt.cmd.Run(tt.root)
+			})
+
+			if tt.wantErr {
+				assert.Error(t, err)
+			} else {
+				assert.NoError(t, err)
+				if tt.wantInOut != "" {
+					assert.Contains(t, output, tt.wantInOut)
+				}
+			}
+		})
+	}
+}
+
+func TestOneNoteCreatePageCmd_Run(t *testing.T) {
+	tests := []struct {
+		name      string
+		cmd       *OneNoteCreatePageCmd
+		root      *Root
+		mockResp  []byte
+		mockErr   error
+		wantErr   bool
+		wantInOut string
+	}{
+		{
+			name: "successful create page",
+			cmd:  &OneNoteCreatePageCmd{SectionID: "sec-123", Title: "New Page"},
+			root: &Root{},
+			mockResp: mustJSON(map[string]interface{}{
+				"id":    "page-new-123",
+				"title": "New Page",
+			}),
+			wantInOut: "Page created",
+		},
+		{
+			name: "create page with content",
+			cmd:  &OneNoteCreatePageCmd{SectionID: "sec-123", Title: "Content Page", Content: "Some content here"},
+			root: &Root{},
+			mockResp: mustJSON(map[string]interface{}{
+				"id":    "page-new-456",
+				"title": "Content Page",
+			}),
+			wantInOut: "Page created",
+		},
+		{
+			name: "JSON output",
+			cmd:  &OneNoteCreatePageCmd{SectionID: "sec-123", Title: "Test"},
+			root: &Root{JSON: true},
+			mockResp: mustJSON(map[string]interface{}{
+				"id":    "page-new",
+				"title": "Test",
+			}),
+			wantInOut: `"title": "Test"`,
+		},
+		{
+			name:    "API error",
+			cmd:     &OneNoteCreatePageCmd{SectionID: "sec-123", Title: "Fail"},
+			root:    &Root{},
+			mockErr: errors.New("API error"),
+			wantErr: true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			mock := &testutil.MockClient{
+				PostHTMLFunc: func(ctx context.Context, path string, html string) ([]byte, error) {
+					return tt.mockResp, tt.mockErr
+				},
+			}
+			tt.root.ClientFactory = mockClientFactory(mock)
+
+			var output string
+			err := error(nil)
+			output = captureOutput(func() {
+				err = tt.cmd.Run(tt.root)
+			})
+
+			if tt.wantErr {
+				assert.Error(t, err)
+			} else {
+				assert.NoError(t, err)
+				if tt.wantInOut != "" {
+					assert.Contains(t, output, tt.wantInOut)
+				}
+			}
+		})
+	}
+}
+
+func TestOneNoteDeleteCmd_Run(t *testing.T) {
+	tests := []struct {
+		name      string
+		cmd       *OneNoteDeleteCmd
+		root      *Root
+		mockErr   error
+		wantErr   bool
+		wantInOut string
+	}{
+		{
+			name:      "successful delete",
+			cmd:       &OneNoteDeleteCmd{PageID: "page-123"},
+			root:      &Root{},
+			wantInOut: "Page deleted",
+		},
+		{
+			name: "JSON output",
+			cmd:  &OneNoteDeleteCmd{PageID: "page-123"},
+			root: &Root{JSON: true},
+			wantInOut: `"success": true`,
+		},
+		{
+			name:    "API error",
+			cmd:     &OneNoteDeleteCmd{PageID: "page-123"},
+			root:    &Root{},
+			mockErr: errors.New("API error"),
+			wantErr: true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			mock := &testutil.MockClient{
+				DeleteFunc: func(ctx context.Context, path string) error {
+					return tt.mockErr
+				},
+			}
+			tt.root.ClientFactory = mockClientFactory(mock)
+
+			var output string
+			err := error(nil)
+			output = captureOutput(func() {
+				err = tt.cmd.Run(tt.root)
+			})
+
+			if tt.wantErr {
+				assert.Error(t, err)
+			} else {
+				assert.NoError(t, err)
+				if tt.wantInOut != "" {
+					assert.Contains(t, output, tt.wantInOut)
+				}
+			}
+		})
+	}
+}
+
+// Test escapeHTML function
+func TestEscapeHTML(t *testing.T) {
+	tests := []struct {
+		name     string
+		input    string
+		expected string
+	}{
+		{name: "empty string", input: "", expected: ""},
+		{name: "no special chars", input: "Hello World", expected: "Hello World"},
+		{name: "ampersand", input: "A & B", expected: "A &amp; B"},
+		{name: "less than", input: "A < B", expected: "A &lt; B"},
+		{name: "greater than", input: "A > B", expected: "A &gt; B"},
+		{name: "double quote", input: `Say "Hello"`, expected: "Say &quot;Hello&quot;"},
+		{name: "single quote", input: "It's fine", expected: "It&#39;s fine"},
+		{name: "mixed", input: `<a href="test">&</a>`, expected: "&lt;a href=&quot;test&quot;&gt;&amp;&lt;/a&gt;"},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := escapeHTML(tt.input)
+			assert.Equal(t, tt.expected, result)
+		})
+	}
+}
+
+// Test type unmarshaling
+func TestNotebook_Unmarshal(t *testing.T) {
+	jsonData := `{
+		"id": "nb-123",
+		"displayName": "My Notebook"
+	}`
+
+	var nb Notebook
+	err := json.Unmarshal([]byte(jsonData), &nb)
 	require.NoError(t, err)
-	assert.Contains(t, output, `"id": "nb-json-test"`)
-	assert.Contains(t, output, `"displayName": "JSON Test Notebook"`)
+	assert.Equal(t, "nb-123", nb.ID)
+	assert.Equal(t, "My Notebook", nb.DisplayName)
 }
 
-func TestSection_JSONOutput(t *testing.T) {
-	section := Section{
-		ID:          "sec-json-test",
-		DisplayName: "JSON Test Section",
-	}
+func TestSection_Unmarshal(t *testing.T) {
+	jsonData := `{
+		"id": "sec-123",
+		"displayName": "My Section"
+	}`
 
-	// Capture stdout
-	old := os.Stdout
-	r, w, _ := os.Pipe()
-	os.Stdout = w
-
-	err := outputJSON(section)
-
-	w.Close()
-	os.Stdout = old
-
-	var buf bytes.Buffer
-	buf.ReadFrom(r)
-	output := buf.String()
-
+	var sec Section
+	err := json.Unmarshal([]byte(jsonData), &sec)
 	require.NoError(t, err)
-	assert.Contains(t, output, `"id": "sec-json-test"`)
-	assert.Contains(t, output, `"displayName": "JSON Test Section"`)
+	assert.Equal(t, "sec-123", sec.ID)
+	assert.Equal(t, "My Section", sec.DisplayName)
 }
 
-func TestPage_JSONOutput(t *testing.T) {
-	page := Page{
-		ID:    "page-json-test",
-		Title: "JSON Test Page",
-	}
-
-	// Capture stdout
-	old := os.Stdout
-	r, w, _ := os.Pipe()
-	os.Stdout = w
-
-	err := outputJSON(page)
-
-	w.Close()
-	os.Stdout = old
-
-	var buf bytes.Buffer
-	buf.ReadFrom(r)
-	output := buf.String()
-
-	require.NoError(t, err)
-	assert.Contains(t, output, `"id": "page-json-test"`)
-	assert.Contains(t, output, `"title": "JSON Test Page"`)
-}
-
-// Tests for HTML content handling
-func TestOneNoteGet_HTMLStripping(t *testing.T) {
-	htmlContent := `<!DOCTYPE html>
-<html>
-<head><title>Page Title</title></head>
-<body>
-<div data-id="p1">
-<p>This is <b>bold</b> and <i>italic</i> text.</p>
-</div>
-</body>
-</html>`
-
-	// Use the stripHTML function
-	result := stripHTML(htmlContent)
-
-	assert.NotContains(t, result, "<html>")
-	assert.NotContains(t, result, "<body>")
-	assert.NotContains(t, result, "<p>")
-	assert.Contains(t, result, "bold")
-	assert.Contains(t, result, "italic")
-}
-
-// Edge cases
-func TestNotebook_EmptyList(t *testing.T) {
-	var notebooks []Notebook
-	assert.Empty(t, notebooks)
-}
-
-func TestSection_EmptyList(t *testing.T) {
-	var sections []Section
-	assert.Empty(t, sections)
-}
-
-func TestPage_EmptyList(t *testing.T) {
-	var pages []Page
-	assert.Empty(t, pages)
-}
-
-func TestNotebook_SpecialCharacters(t *testing.T) {
-	jsonData := `{"id": "nb-special", "displayName": "Notes & Ideas: 2024"}`
-
-	var notebook Notebook
-	err := json.Unmarshal([]byte(jsonData), &notebook)
-	require.NoError(t, err)
-	assert.Equal(t, "Notes & Ideas: 2024", notebook.DisplayName)
-}
-
-func TestPage_UnicodeTitle(t *testing.T) {
-	jsonData := `{"id": "page-unicode", "title": "日本語ノート"}`
+func TestPage_Unmarshal(t *testing.T) {
+	jsonData := `{
+		"id": "page-123",
+		"title": "My Page"
+	}`
 
 	var page Page
 	err := json.Unmarshal([]byte(jsonData), &page)
 	require.NoError(t, err)
-	assert.Equal(t, "日本語ノート", page.Title)
-}
-
-// Tests for OneNote structure hierarchy
-func TestOneNote_Hierarchy(t *testing.T) {
-	// Test that the hierarchy makes sense
-	notebook := Notebook{ID: "nb-1", DisplayName: "Work"}
-	sections := []Section{
-		{ID: "sec-1", DisplayName: "Projects"},
-		{ID: "sec-2", DisplayName: "Meetings"},
-	}
-	pages := []Page{
-		{ID: "page-1", Title: "Project Alpha"},
-		{ID: "page-2", Title: "Project Beta"},
-	}
-
-	assert.NotEmpty(t, notebook.ID)
-	assert.Len(t, sections, 2)
-	assert.Len(t, pages, 2)
+	assert.Equal(t, "page-123", page.ID)
+	assert.Equal(t, "My Page", page.Title)
 }

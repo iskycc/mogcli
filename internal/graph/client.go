@@ -16,9 +16,12 @@ import (
 	"github.com/visionik/mogcli/internal/config"
 )
 
-const (
-	graphBaseURL = "https://graph.microsoft.com/v1.0"
-	authURL      = "https://login.microsoftonline.com/common/oauth2/v2.0"
+var (
+	// GraphBaseURL is the base URL for the Microsoft Graph API.
+	// It can be overridden for testing.
+	GraphBaseURL = "https://graph.microsoft.com/v1.0"
+	// AuthURL is the base URL for OAuth2 authentication.
+	AuthURL = "https://login.microsoftonline.com/common/oauth2/v2.0"
 )
 
 // Client defines the interface for Microsoft Graph API operations.
@@ -102,7 +105,7 @@ func (c *GraphClient) Delete(ctx context.Context, path string) error {
 
 // PostHTML performs a POST request with HTML/XHTML content (for OneNote pages).
 func (c *GraphClient) PostHTML(ctx context.Context, path string, html string) ([]byte, error) {
-	u := graphBaseURL + path
+	u := GraphBaseURL + path
 
 	req, err := http.NewRequestWithContext(ctx, "POST", u, strings.NewReader(html))
 	if err != nil {
@@ -141,7 +144,7 @@ func (c *GraphClient) PostHTML(ctx context.Context, path string, html string) ([
 
 // Put performs a PUT request with raw bytes (for file uploads).
 func (c *GraphClient) Put(ctx context.Context, path string, data []byte, contentType string) ([]byte, error) {
-	u := graphBaseURL + path
+	u := GraphBaseURL + path
 
 	req, err := http.NewRequestWithContext(ctx, "PUT", u, bytes.NewReader(data))
 	if err != nil {
@@ -179,7 +182,7 @@ func (c *GraphClient) Put(ctx context.Context, path string, data []byte, content
 }
 
 func (c *GraphClient) request(ctx context.Context, method, path string, query url.Values, body interface{}) ([]byte, error) {
-	u := graphBaseURL + path
+	u := GraphBaseURL + path
 	if query != nil && len(query) > 0 {
 		u += "?" + query.Encode()
 	}
@@ -267,7 +270,7 @@ func RequestDeviceCode(clientID string) (*DeviceCodeResponse, error) {
 	data.Set("client_id", clientID)
 	data.Set("scope", strings.Join(scopes, " "))
 
-	resp, err := http.PostForm(authURL+"/devicecode", data)
+	resp, err := http.PostForm(AuthURL+"/devicecode", data)
 	if err != nil {
 		return nil, err
 	}
@@ -296,7 +299,7 @@ func PollForToken(clientID, deviceCode string, interval int) (*config.Tokens, er
 	for {
 		time.Sleep(time.Duration(interval) * time.Second)
 
-		resp, err := http.PostForm(authURL+"/token", data)
+		resp, err := http.PostForm(AuthURL+"/token", data)
 		if err != nil {
 			return nil, err
 		}
@@ -335,7 +338,7 @@ func RefreshToken(clientID, refreshToken string) (*config.Tokens, error) {
 	data.Set("refresh_token", refreshToken)
 	data.Set("grant_type", "refresh_token")
 
-	resp, err := http.PostForm(authURL+"/token", data)
+	resp, err := http.PostForm(AuthURL+"/token", data)
 	if err != nil {
 		return nil, err
 	}

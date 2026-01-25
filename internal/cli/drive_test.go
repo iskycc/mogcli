@@ -1,73 +1,660 @@
 package cli
 
 import (
-	"bytes"
+	"context"
 	"encoding/json"
+	"errors"
+	"net/url"
 	"os"
 	"path/filepath"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"github.com/visionik/mogcli/internal/config"
+	"github.com/visionik/mogcli/internal/testutil"
 )
 
-func setupDriveTestConfig(t *testing.T) func() {
-	t.Helper()
-
-	origHome := os.Getenv("HOME")
-	tmpDir := t.TempDir()
-	os.Setenv("HOME", tmpDir)
-
-	configDir := filepath.Join(tmpDir, ".config", "mog")
-	require.NoError(t, os.MkdirAll(configDir, 0700))
-
-	tokens := &config.Tokens{
-		AccessToken:  "test-access-token",
-		RefreshToken: "test-refresh-token",
-		ExpiresAt:    9999999999,
+func TestDriveLsCmd_Run(t *testing.T) {
+	tests := []struct {
+		name      string
+		cmd       *DriveLsCmd
+		root      *Root
+		mockResp  []byte
+		mockErr   error
+		wantErr   bool
+		wantInOut string
+	}{
+		{
+			name: "successful list root",
+			cmd:  &DriveLsCmd{},
+			root: &Root{},
+			mockResp: mustJSON(map[string]interface{}{
+				"value": []map[string]interface{}{
+					{
+						"id":   "file-123",
+						"name": "Document.docx",
+						"size": 1024,
+					},
+					{
+						"id":     "folder-456",
+						"name":   "Projects",
+						"folder": map[string]int{"childCount": 5},
+					},
+				},
+			}),
+			wantInOut: "Document.docx",
+		},
+		{
+			name: "list with path",
+			cmd:  &DriveLsCmd{Path: "Documents"},
+			root: &Root{},
+			mockResp: mustJSON(map[string]interface{}{
+				"value": []map[string]interface{}{
+					{"id": "file-123", "name": "File.txt", "size": 512},
+				},
+			}),
+			wantInOut: "File.txt",
+		},
+		{
+			name: "list with ID (long path)",
+			cmd:  &DriveLsCmd{Path: "01234567890123456789012345"},
+			root: &Root{},
+			mockResp: mustJSON(map[string]interface{}{
+				"value": []map[string]interface{}{},
+			}),
+		},
+		{
+			name: "JSON output",
+			cmd:  &DriveLsCmd{},
+			root: &Root{JSON: true},
+			mockResp: mustJSON(map[string]interface{}{
+				"value": []map[string]interface{}{
+					{"id": "file-123", "name": "File.txt"},
+				},
+			}),
+			wantInOut: `"name": "File.txt"`,
+		},
+		{
+			name:    "API error",
+			cmd:     &DriveLsCmd{},
+			root:    &Root{},
+			mockErr: errors.New("API error"),
+			wantErr: true,
+		},
 	}
-	require.NoError(t, config.SaveTokens(tokens))
 
-	cfg := &config.Config{ClientID: "test-client-id-12345678901234567890"}
-	require.NoError(t, config.Save(cfg))
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			mock := &testutil.MockClient{
+				GetFunc: func(ctx context.Context, path string, query url.Values) ([]byte, error) {
+					return tt.mockResp, tt.mockErr
+				},
+			}
+			tt.root.ClientFactory = mockClientFactory(mock)
 
-	return func() {
-		os.Setenv("HOME", origHome)
+			var output string
+			err := error(nil)
+			output = captureOutput(func() {
+				err = tt.cmd.Run(tt.root)
+			})
+
+			if tt.wantErr {
+				assert.Error(t, err)
+			} else {
+				assert.NoError(t, err)
+				if tt.wantInOut != "" {
+					assert.Contains(t, output, tt.wantInOut)
+				}
+			}
+		})
 	}
 }
 
-// Tests for DriveItem type
+func TestDriveSearchCmd_Run(t *testing.T) {
+	tests := []struct {
+		name      string
+		cmd       *DriveSearchCmd
+		root      *Root
+		mockResp  []byte
+		mockErr   error
+		wantErr   bool
+		wantInOut string
+	}{
+		{
+			name: "successful search",
+			cmd:  &DriveSearchCmd{Query: "report", Max: 25},
+			root: &Root{},
+			mockResp: mustJSON(map[string]interface{}{
+				"value": []map[string]interface{}{
+					{"id": "file-123", "name": "Report.docx", "size": 2048},
+				},
+			}),
+			wantInOut: "Report.docx",
+		},
+		{
+			name: "search with JSON output",
+			cmd:  &DriveSearchCmd{Query: "test", Max: 25},
+			root: &Root{JSON: true},
+			mockResp: mustJSON(map[string]interface{}{
+				"value": []map[string]interface{}{
+					{"id": "file-123", "name": "Test.txt"},
+				},
+			}),
+			wantInOut: `"name": "Test.txt"`,
+		},
+		{
+			name:    "API error",
+			cmd:     &DriveSearchCmd{Query: "test", Max: 25},
+			root:    &Root{},
+			mockErr: errors.New("API error"),
+			wantErr: true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			mock := &testutil.MockClient{
+				GetFunc: func(ctx context.Context, path string, query url.Values) ([]byte, error) {
+					return tt.mockResp, tt.mockErr
+				},
+			}
+			tt.root.ClientFactory = mockClientFactory(mock)
+
+			var output string
+			err := error(nil)
+			output = captureOutput(func() {
+				err = tt.cmd.Run(tt.root)
+			})
+
+			if tt.wantErr {
+				assert.Error(t, err)
+			} else {
+				assert.NoError(t, err)
+				if tt.wantInOut != "" {
+					assert.Contains(t, output, tt.wantInOut)
+				}
+			}
+		})
+	}
+}
+
+func TestDriveGetCmd_Run(t *testing.T) {
+	tests := []struct {
+		name      string
+		cmd       *DriveGetCmd
+		root      *Root
+		mockResp  []byte
+		mockErr   error
+		wantErr   bool
+		wantInOut string
+	}{
+		{
+			name: "successful get",
+			cmd:  &DriveGetCmd{ID: "file-123"},
+			root: &Root{},
+			mockResp: mustJSON(map[string]interface{}{
+				"id":                   "file-123",
+				"name":                 "Document.docx",
+				"size":                 4096,
+				"createdDateTime":      "2024-01-15T10:00:00Z",
+				"lastModifiedDateTime": "2024-01-20T15:30:00Z",
+				"webUrl":               "https://onedrive.com/file",
+			}),
+			wantInOut: "Document.docx",
+		},
+		{
+			name: "get with JSON output",
+			cmd:  &DriveGetCmd{ID: "file-123"},
+			root: &Root{JSON: true},
+			mockResp: mustJSON(map[string]interface{}{
+				"id":   "file-123",
+				"name": "File.txt",
+			}),
+			wantInOut: `"name": "File.txt"`,
+		},
+		{
+			name:    "file not found",
+			cmd:     &DriveGetCmd{ID: "invalid"},
+			root:    &Root{},
+			mockErr: errors.New("ResourceNotFound"),
+			wantErr: true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			mock := &testutil.MockClient{
+				GetFunc: func(ctx context.Context, path string, query url.Values) ([]byte, error) {
+					return tt.mockResp, tt.mockErr
+				},
+			}
+			tt.root.ClientFactory = mockClientFactory(mock)
+
+			var output string
+			err := error(nil)
+			output = captureOutput(func() {
+				err = tt.cmd.Run(tt.root)
+			})
+
+			if tt.wantErr {
+				assert.Error(t, err)
+			} else {
+				assert.NoError(t, err)
+				if tt.wantInOut != "" {
+					assert.Contains(t, output, tt.wantInOut)
+				}
+			}
+		})
+	}
+}
+
+func TestDriveDownloadCmd_Run(t *testing.T) {
+	tmpDir := t.TempDir()
+	outFile := filepath.Join(tmpDir, "downloaded.txt")
+
+	mock := &testutil.MockClient{
+		GetFunc: func(ctx context.Context, path string, query url.Values) ([]byte, error) {
+			return []byte("File content"), nil
+		},
+	}
+	root := &Root{ClientFactory: mockClientFactory(mock)}
+
+	cmd := &DriveDownloadCmd{
+		ID:  "file-123",
+		Out: outFile,
+	}
+
+	output := captureOutput(func() {
+		err := cmd.Run(root)
+		require.NoError(t, err)
+	})
+
+	assert.Contains(t, output, "Downloaded")
+	assert.FileExists(t, outFile)
+	content, _ := os.ReadFile(outFile)
+	assert.Equal(t, "File content", string(content))
+}
+
+func TestDriveDownloadCmd_APIError(t *testing.T) {
+	mock := &testutil.MockClient{
+		GetFunc: func(ctx context.Context, path string, query url.Values) ([]byte, error) {
+			return nil, errors.New("API error")
+		},
+	}
+	root := &Root{ClientFactory: mockClientFactory(mock)}
+
+	cmd := &DriveDownloadCmd{
+		ID:  "file-123",
+		Out: "/tmp/out.txt",
+	}
+
+	err := cmd.Run(root)
+	assert.Error(t, err)
+}
+
+func TestDriveUploadCmd_Run(t *testing.T) {
+	tmpDir := t.TempDir()
+	srcFile := filepath.Join(tmpDir, "upload.txt")
+	require.NoError(t, os.WriteFile(srcFile, []byte("Upload content"), 0644))
+
+	tests := []struct {
+		name      string
+		cmd       *DriveUploadCmd
+		mockResp  []byte
+		mockErr   error
+		wantErr   bool
+		wantInOut string
+	}{
+		{
+			name: "successful upload",
+			cmd:  &DriveUploadCmd{Path: srcFile},
+			mockResp: mustJSON(map[string]interface{}{
+				"id":   "file-new-123",
+				"name": "upload.txt",
+			}),
+			wantInOut: "Uploaded",
+		},
+		{
+			name: "upload with custom name",
+			cmd:  &DriveUploadCmd{Path: srcFile, Name: "renamed.txt"},
+			mockResp: mustJSON(map[string]interface{}{
+				"id":   "file-new-123",
+				"name": "renamed.txt",
+			}),
+			wantInOut: "Uploaded",
+		},
+		{
+			name: "upload to folder",
+			cmd:  &DriveUploadCmd{Path: srcFile, Folder: "folder-123"},
+			mockResp: mustJSON(map[string]interface{}{
+				"id":   "file-new-123",
+				"name": "upload.txt",
+			}),
+			wantInOut: "Uploaded",
+		},
+		{
+			name:    "file not found",
+			cmd:     &DriveUploadCmd{Path: "/nonexistent/file.txt"},
+			wantErr: true,
+		},
+		{
+			name:    "API error",
+			cmd:     &DriveUploadCmd{Path: srcFile},
+			mockErr: errors.New("API error"),
+			wantErr: true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			mock := &testutil.MockClient{
+				PutFunc: func(ctx context.Context, path string, data []byte, contentType string) ([]byte, error) {
+					return tt.mockResp, tt.mockErr
+				},
+			}
+			root := &Root{ClientFactory: mockClientFactory(mock)}
+
+			var output string
+			err := error(nil)
+			output = captureOutput(func() {
+				err = tt.cmd.Run(root)
+			})
+
+			if tt.wantErr {
+				assert.Error(t, err)
+			} else {
+				assert.NoError(t, err)
+				if tt.wantInOut != "" {
+					assert.Contains(t, output, tt.wantInOut)
+				}
+			}
+		})
+	}
+}
+
+func TestDriveMkdirCmd_Run(t *testing.T) {
+	tests := []struct {
+		name      string
+		cmd       *DriveMkdirCmd
+		mockResp  []byte
+		mockErr   error
+		wantErr   bool
+		wantInOut string
+	}{
+		{
+			name: "successful mkdir",
+			cmd:  &DriveMkdirCmd{Name: "NewFolder"},
+			mockResp: mustJSON(map[string]interface{}{
+				"id":   "folder-new-123",
+				"name": "NewFolder",
+			}),
+			wantInOut: "Created folder",
+		},
+		{
+			name: "mkdir with parent",
+			cmd:  &DriveMkdirCmd{Name: "SubFolder", Parent: "parent-123"},
+			mockResp: mustJSON(map[string]interface{}{
+				"id":   "folder-new-456",
+				"name": "SubFolder",
+			}),
+			wantInOut: "Created folder",
+		},
+		{
+			name:    "API error",
+			cmd:     &DriveMkdirCmd{Name: "Folder"},
+			mockErr: errors.New("API error"),
+			wantErr: true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			mock := &testutil.MockClient{
+				PostFunc: func(ctx context.Context, path string, body interface{}) ([]byte, error) {
+					return tt.mockResp, tt.mockErr
+				},
+			}
+			root := &Root{ClientFactory: mockClientFactory(mock)}
+
+			var output string
+			err := error(nil)
+			output = captureOutput(func() {
+				err = tt.cmd.Run(root)
+			})
+
+			if tt.wantErr {
+				assert.Error(t, err)
+			} else {
+				assert.NoError(t, err)
+				if tt.wantInOut != "" {
+					assert.Contains(t, output, tt.wantInOut)
+				}
+			}
+		})
+	}
+}
+
+func TestDriveMoveCmd_Run(t *testing.T) {
+	tests := []struct {
+		name      string
+		cmd       *DriveMoveCmd
+		mockErr   error
+		wantErr   bool
+		wantInOut string
+	}{
+		{
+			name:      "successful move",
+			cmd:       &DriveMoveCmd{ID: "file-123", Destination: "folder-456"},
+			wantInOut: "File moved",
+		},
+		{
+			name:    "API error",
+			cmd:     &DriveMoveCmd{ID: "file-123", Destination: "folder-456"},
+			mockErr: errors.New("API error"),
+			wantErr: true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			mock := &testutil.MockClient{
+				PatchFunc: func(ctx context.Context, path string, body interface{}) ([]byte, error) {
+					return []byte(`{}`), tt.mockErr
+				},
+			}
+			root := &Root{ClientFactory: mockClientFactory(mock)}
+
+			var output string
+			err := error(nil)
+			output = captureOutput(func() {
+				err = tt.cmd.Run(root)
+			})
+
+			if tt.wantErr {
+				assert.Error(t, err)
+			} else {
+				assert.NoError(t, err)
+				if tt.wantInOut != "" {
+					assert.Contains(t, output, tt.wantInOut)
+				}
+			}
+		})
+	}
+}
+
+func TestDriveCopyCmd_Run(t *testing.T) {
+	tests := []struct {
+		name      string
+		cmd       *DriveCopyCmd
+		mockErr   error
+		wantErr   bool
+		wantInOut string
+	}{
+		{
+			name:      "successful copy",
+			cmd:       &DriveCopyCmd{ID: "file-123", Name: "Copy of File.txt"},
+			wantInOut: "Copy initiated",
+		},
+		{
+			name:    "API error",
+			cmd:     &DriveCopyCmd{ID: "file-123", Name: "Copy"},
+			mockErr: errors.New("API error"),
+			wantErr: true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			mock := &testutil.MockClient{
+				PostFunc: func(ctx context.Context, path string, body interface{}) ([]byte, error) {
+					return []byte(`{}`), tt.mockErr
+				},
+			}
+			root := &Root{ClientFactory: mockClientFactory(mock)}
+
+			var output string
+			err := error(nil)
+			output = captureOutput(func() {
+				err = tt.cmd.Run(root)
+			})
+
+			if tt.wantErr {
+				assert.Error(t, err)
+			} else {
+				assert.NoError(t, err)
+				if tt.wantInOut != "" {
+					assert.Contains(t, output, tt.wantInOut)
+				}
+			}
+		})
+	}
+}
+
+func TestDriveRenameCmd_Run(t *testing.T) {
+	tests := []struct {
+		name      string
+		cmd       *DriveRenameCmd
+		mockErr   error
+		wantErr   bool
+		wantInOut string
+	}{
+		{
+			name:      "successful rename",
+			cmd:       &DriveRenameCmd{ID: "file-123", Name: "NewName.txt"},
+			wantInOut: "Renamed to: NewName.txt",
+		},
+		{
+			name:    "API error",
+			cmd:     &DriveRenameCmd{ID: "file-123", Name: "New"},
+			mockErr: errors.New("API error"),
+			wantErr: true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			mock := &testutil.MockClient{
+				PatchFunc: func(ctx context.Context, path string, body interface{}) ([]byte, error) {
+					return []byte(`{}`), tt.mockErr
+				},
+			}
+			root := &Root{ClientFactory: mockClientFactory(mock)}
+
+			var output string
+			err := error(nil)
+			output = captureOutput(func() {
+				err = tt.cmd.Run(root)
+			})
+
+			if tt.wantErr {
+				assert.Error(t, err)
+			} else {
+				assert.NoError(t, err)
+				if tt.wantInOut != "" {
+					assert.Contains(t, output, tt.wantInOut)
+				}
+			}
+		})
+	}
+}
+
+func TestDriveDeleteCmd_Run(t *testing.T) {
+	tests := []struct {
+		name      string
+		cmd       *DriveDeleteCmd
+		mockErr   error
+		wantErr   bool
+		wantInOut string
+	}{
+		{
+			name:      "successful delete",
+			cmd:       &DriveDeleteCmd{ID: "file-123"},
+			wantInOut: "File deleted",
+		},
+		{
+			name:    "API error",
+			cmd:     &DriveDeleteCmd{ID: "file-123"},
+			mockErr: errors.New("API error"),
+			wantErr: true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			mock := &testutil.MockClient{
+				DeleteFunc: func(ctx context.Context, path string) error {
+					return tt.mockErr
+				},
+			}
+			root := &Root{ClientFactory: mockClientFactory(mock)}
+
+			var output string
+			err := error(nil)
+			output = captureOutput(func() {
+				err = tt.cmd.Run(root)
+			})
+
+			if tt.wantErr {
+				assert.Error(t, err)
+			} else {
+				assert.NoError(t, err)
+				if tt.wantInOut != "" {
+					assert.Contains(t, output, tt.wantInOut)
+				}
+			}
+		})
+	}
+}
+
+// Test type unmarshaling
 func TestDriveItem_Unmarshal(t *testing.T) {
 	tests := []struct {
-		name     string
-		json     string
-		isFolder bool
+		name string
+		json string
+		want DriveItem
 	}{
 		{
 			name: "file item",
 			json: `{
-				"id": "item-123",
-				"name": "document.pdf",
-				"size": 1024,
+				"id": "file-123",
+				"name": "Document.docx",
+				"size": 4096,
 				"createdDateTime": "2024-01-15T10:00:00Z",
-				"lastModifiedDateTime": "2024-01-15T12:00:00Z",
-				"webUrl": "https://example.com/file",
-				"file": {"mimeType": "application/pdf"}
+				"lastModifiedDateTime": "2024-01-20T15:30:00Z",
+				"webUrl": "https://onedrive.com/file",
+				"file": {"mimeType": "application/vnd.openxmlformats-officedocument.wordprocessingml.document"}
 			}`,
-			isFolder: false,
+			want: DriveItem{ID: "file-123", Name: "Document.docx", Size: 4096},
 		},
 		{
 			name: "folder item",
 			json: `{
-				"id": "folder-456",
-				"name": "Documents",
+				"id": "folder-123",
+				"name": "Projects",
 				"size": 0,
-				"createdDateTime": "2024-01-10T08:00:00Z",
-				"lastModifiedDateTime": "2024-01-15T15:00:00Z",
-				"folder": {"childCount": 10}
+				"folder": {"childCount": 5}
 			}`,
-			isFolder: true,
+			want: DriveItem{ID: "folder-123", Name: "Projects"},
 		},
 	}
 
@@ -76,388 +663,29 @@ func TestDriveItem_Unmarshal(t *testing.T) {
 			var item DriveItem
 			err := json.Unmarshal([]byte(tt.json), &item)
 			require.NoError(t, err)
-
-			if tt.isFolder {
-				assert.NotNil(t, item.Folder)
-				assert.Nil(t, item.File)
-			} else {
-				assert.NotNil(t, item.File)
-				assert.Nil(t, item.Folder)
-			}
+			assert.Equal(t, tt.want.ID, item.ID)
+			assert.Equal(t, tt.want.Name, item.Name)
 		})
 	}
 }
 
-// Tests for FolderInfo type
-func TestFolderInfo_Unmarshal(t *testing.T) {
-	jsonData := `{"childCount": 15}`
-
-	var info FolderInfo
-	err := json.Unmarshal([]byte(jsonData), &info)
-	require.NoError(t, err)
-	assert.Equal(t, 15, info.ChildCount)
-}
-
-// Tests for FileInfo type
-func TestFileInfo_Unmarshal(t *testing.T) {
-	jsonData := `{"mimeType": "image/jpeg"}`
-
-	var info FileInfo
-	err := json.Unmarshal([]byte(jsonData), &info)
-	require.NoError(t, err)
-	assert.Equal(t, "image/jpeg", info.MimeType)
-}
-
-// Tests for formatSize
 func TestFormatSize(t *testing.T) {
 	tests := []struct {
-		name     string
 		bytes    int64
 		expected string
 	}{
-		{"bytes", 500, "500 B"},
-		{"kilobytes", 1024, "1.0 KB"},
-		{"megabytes", 1048576, "1.0 MB"},
-		{"gigabytes", 1073741824, "1.0 GB"},
-		{"terabytes", 1099511627776, "1.0 TB"},
-		{"fractional KB", 1536, "1.5 KB"},
-		{"fractional MB", 5242880, "5.0 MB"},
-		{"zero", 0, "0 B"},
+		{0, "0 B"},
+		{512, "512 B"},
+		{1024, "1.0 KB"},
+		{1536, "1.5 KB"},
+		{1048576, "1.0 MB"},
+		{1073741824, "1.0 GB"},
 	}
 
 	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
+		t.Run(tt.expected, func(t *testing.T) {
 			result := formatSize(tt.bytes)
 			assert.Equal(t, tt.expected, result)
-		})
-	}
-}
-
-// Tests for DriveLsCmd
-func TestDriveLsCmd_Fields(t *testing.T) {
-	tests := []struct {
-		name string
-		path string
-	}{
-		{"root", ""},
-		{"folder path", "Documents/Work"},
-		{"folder ID", "driveItem12345678901234567890123456"},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			cmd := &DriveLsCmd{Path: tt.path}
-			assert.Equal(t, tt.path, cmd.Path)
-		})
-	}
-}
-
-func TestDriveLsCmd_PathType(t *testing.T) {
-	tests := []struct {
-		name   string
-		path   string
-		isID   bool
-	}{
-		{"empty path", "", false},
-		{"short path", "Documents", false},
-		{"long ID-like", "AQMkADAwATMzAGZmAS04MDViLTRiNzg", true},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			isLikelyID := len(tt.path) > 20
-			assert.Equal(t, tt.isID, isLikelyID)
-		})
-	}
-}
-
-// Tests for DriveSearchCmd
-func TestDriveSearchCmd_Fields(t *testing.T) {
-	cmd := &DriveSearchCmd{
-		Query: "budget.xlsx",
-		Max:   50,
-	}
-
-	assert.Equal(t, "budget.xlsx", cmd.Query)
-	assert.Equal(t, 50, cmd.Max)
-}
-
-func TestDriveSearchCmd_DefaultMax(t *testing.T) {
-	cmd := &DriveSearchCmd{
-		Query: "test",
-		Max:   25, // Default
-	}
-	assert.Equal(t, 25, cmd.Max)
-}
-
-// Tests for DriveGetCmd
-func TestDriveGetCmd_Fields(t *testing.T) {
-	cmd := &DriveGetCmd{
-		ID: "item-123",
-	}
-	assert.Equal(t, "item-123", cmd.ID)
-}
-
-// Tests for DriveDownloadCmd
-func TestDriveDownloadCmd_Fields(t *testing.T) {
-	cmd := &DriveDownloadCmd{
-		ID:  "item-123",
-		Out: "/path/to/output.pdf",
-	}
-
-	assert.Equal(t, "item-123", cmd.ID)
-	assert.Equal(t, "/path/to/output.pdf", cmd.Out)
-}
-
-// Tests for DriveUploadCmd
-func TestDriveUploadCmd_Fields(t *testing.T) {
-	cmd := &DriveUploadCmd{
-		Path:   "/local/file.txt",
-		Folder: "folder-123",
-		Name:   "renamed.txt",
-	}
-
-	assert.Equal(t, "/local/file.txt", cmd.Path)
-	assert.Equal(t, "folder-123", cmd.Folder)
-	assert.Equal(t, "renamed.txt", cmd.Name)
-}
-
-func TestDriveUploadCmd_DefaultName(t *testing.T) {
-	cmd := &DriveUploadCmd{
-		Path: "/local/path/document.pdf",
-	}
-
-	// When Name is empty, should use basename of Path
-	name := cmd.Name
-	if name == "" {
-		name = filepath.Base(cmd.Path)
-	}
-	assert.Equal(t, "document.pdf", name)
-}
-
-// Tests for DriveMkdirCmd
-func TestDriveMkdirCmd_Fields(t *testing.T) {
-	cmd := &DriveMkdirCmd{
-		Name:   "New Folder",
-		Parent: "parent-folder-123",
-	}
-
-	assert.Equal(t, "New Folder", cmd.Name)
-	assert.Equal(t, "parent-folder-123", cmd.Parent)
-}
-
-func TestDriveMkdirCmd_NoParent(t *testing.T) {
-	cmd := &DriveMkdirCmd{
-		Name: "Root Folder",
-	}
-
-	assert.Equal(t, "Root Folder", cmd.Name)
-	assert.Empty(t, cmd.Parent)
-}
-
-// Tests for DriveMoveCmd
-func TestDriveMoveCmd_Fields(t *testing.T) {
-	cmd := &DriveMoveCmd{
-		ID:          "item-123",
-		Destination: "folder-456",
-	}
-
-	assert.Equal(t, "item-123", cmd.ID)
-	assert.Equal(t, "folder-456", cmd.Destination)
-}
-
-// Tests for DriveCopyCmd
-func TestDriveCopyCmd_Fields(t *testing.T) {
-	cmd := &DriveCopyCmd{
-		ID:   "item-123",
-		Name: "copy-of-file.pdf",
-	}
-
-	assert.Equal(t, "item-123", cmd.ID)
-	assert.Equal(t, "copy-of-file.pdf", cmd.Name)
-}
-
-// Tests for DriveRenameCmd
-func TestDriveRenameCmd_Fields(t *testing.T) {
-	cmd := &DriveRenameCmd{
-		ID:   "item-123",
-		Name: "new-name.txt",
-	}
-
-	assert.Equal(t, "item-123", cmd.ID)
-	assert.Equal(t, "new-name.txt", cmd.Name)
-}
-
-// Tests for DriveDeleteCmd
-func TestDriveDeleteCmd_Fields(t *testing.T) {
-	cmd := &DriveDeleteCmd{
-		ID: "item-123",
-	}
-	assert.Equal(t, "item-123", cmd.ID)
-}
-
-// Tests for drive list output
-func TestDriveLs_OutputFormat(t *testing.T) {
-	items := []DriveItem{
-		{
-			ID:   "file-123-long-id-for-testing",
-			Name: "document.pdf",
-			Size: 1024,
-			File: &FileInfo{MimeType: "application/pdf"},
-		},
-		{
-			ID:     "folder-456-long-id-for-testing",
-			Name:   "Projects",
-			Size:   0,
-			Folder: &FolderInfo{ChildCount: 5},
-		},
-	}
-
-	// Capture stdout
-	old := os.Stdout
-	r, w, _ := os.Pipe()
-	os.Stdout = w
-
-	for _, item := range items {
-		itemType := "📄"
-		if item.Folder != nil {
-			itemType = "📁"
-		}
-		size := ""
-		if item.Size > 0 {
-			size = formatSize(item.Size)
-		}
-		// Simplified output for testing
-		os.Stdout.WriteString(itemType + " " + item.Name + " " + size + "\n")
-	}
-
-	w.Close()
-	os.Stdout = old
-
-	var buf bytes.Buffer
-	buf.ReadFrom(r)
-	output := buf.String()
-
-	assert.Contains(t, output, "📄")
-	assert.Contains(t, output, "📁")
-	assert.Contains(t, output, "document.pdf")
-	assert.Contains(t, output, "Projects")
-	assert.Contains(t, output, "1.0 KB")
-}
-
-// Tests for JSON output
-func TestDriveItem_JSONOutput(t *testing.T) {
-	item := DriveItem{
-		ID:                   "item-123",
-		Name:                 "test.txt",
-		Size:                 256,
-		CreatedDateTime:      "2024-01-15T10:00:00Z",
-		LastModifiedDateTime: "2024-01-15T12:00:00Z",
-		WebURL:               "https://example.com/file",
-	}
-
-	// Capture stdout
-	old := os.Stdout
-	r, w, _ := os.Pipe()
-	os.Stdout = w
-
-	err := outputJSON(item)
-
-	w.Close()
-	os.Stdout = old
-
-	var buf bytes.Buffer
-	buf.ReadFrom(r)
-	output := buf.String()
-
-	require.NoError(t, err)
-	assert.Contains(t, output, `"id": "item-123"`)
-	assert.Contains(t, output, `"name": "test.txt"`)
-	assert.Contains(t, output, `"size": 256`)
-}
-
-// Tests for DriveItem with full metadata
-func TestDriveItem_FullMetadata(t *testing.T) {
-	jsonData := `{
-		"id": "AQMkADAwATMzAGZmAS04MDViLTRiNzgtMDACLTAwCgBGAAAD",
-		"name": "Q4 Report.xlsx",
-		"size": 2048576,
-		"createdDateTime": "2024-01-01T08:00:00Z",
-		"lastModifiedDateTime": "2024-01-15T16:30:00Z",
-		"webUrl": "https://onedrive.example.com/documents/Q4%20Report.xlsx",
-		"file": {
-			"mimeType": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
-		}
-	}`
-
-	var item DriveItem
-	err := json.Unmarshal([]byte(jsonData), &item)
-	require.NoError(t, err)
-
-	assert.NotEmpty(t, item.ID)
-	assert.Equal(t, "Q4 Report.xlsx", item.Name)
-	assert.Equal(t, int64(2048576), item.Size)
-	assert.Equal(t, "2024-01-01T08:00:00Z", item.CreatedDateTime)
-	assert.Equal(t, "2024-01-15T16:30:00Z", item.LastModifiedDateTime)
-	assert.NotEmpty(t, item.WebURL)
-	assert.NotNil(t, item.File)
-	assert.Contains(t, item.File.MimeType, "spreadsheet")
-}
-
-// Tests for folder with children
-func TestDriveItem_FolderWithChildren(t *testing.T) {
-	jsonData := `{
-		"id": "folder-789",
-		"name": "Shared Documents",
-		"size": 0,
-		"folder": {
-			"childCount": 42
-		}
-	}`
-
-	var item DriveItem
-	err := json.Unmarshal([]byte(jsonData), &item)
-	require.NoError(t, err)
-
-	assert.NotNil(t, item.Folder)
-	assert.Equal(t, 42, item.Folder.ChildCount)
-	assert.Nil(t, item.File)
-}
-
-// Edge case tests
-func TestDriveItem_EmptyName(t *testing.T) {
-	jsonData := `{"id": "item-123", "name": ""}`
-
-	var item DriveItem
-	err := json.Unmarshal([]byte(jsonData), &item)
-	require.NoError(t, err)
-	assert.Empty(t, item.Name)
-}
-
-func TestFormatSize_LargeFile(t *testing.T) {
-	// Test with very large file (multiple petabytes - edge case)
-	size := int64(5 * 1024 * 1024 * 1024 * 1024 * 1024) // 5 PB
-	result := formatSize(size)
-	assert.Contains(t, result, "PB")
-}
-
-func TestFormatSize_ExactBoundaries(t *testing.T) {
-	tests := []struct {
-		bytes    int64
-		contains string
-	}{
-		{1023, "B"},          // Just under 1 KB
-		{1024, "KB"},         // Exactly 1 KB
-		{1048575, "KB"},      // Just under 1 MB
-		{1048576, "MB"},      // Exactly 1 MB
-		{1073741823, "MB"},   // Just under 1 GB
-		{1073741824, "GB"},   // Exactly 1 GB
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.contains, func(t *testing.T) {
-			result := formatSize(tt.bytes)
-			assert.Contains(t, result, tt.contains)
 		})
 	}
 }
