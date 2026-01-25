@@ -81,6 +81,45 @@ func (c *Client) Delete(ctx context.Context, path string) error {
 	return err
 }
 
+// PostHTML performs a POST request with HTML/XHTML content (for OneNote pages).
+func (c *Client) PostHTML(ctx context.Context, path string, html string) ([]byte, error) {
+	u := graphBaseURL + path
+
+	req, err := http.NewRequestWithContext(ctx, "POST", u, strings.NewReader(html))
+	if err != nil {
+		return nil, fmt.Errorf("failed to create request: %w", err)
+	}
+
+	req.Header.Set("Authorization", "Bearer "+c.token)
+	req.Header.Set("Content-Type", "application/xhtml+xml")
+
+	resp, err := c.httpClient.Do(req)
+	if err != nil {
+		return nil, fmt.Errorf("request failed: %w", err)
+	}
+	defer resp.Body.Close()
+
+	respBody, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return nil, fmt.Errorf("failed to read response: %w", err)
+	}
+
+	if resp.StatusCode >= 400 {
+		var errResp struct {
+			Error struct {
+				Code    string `json:"code"`
+				Message string `json:"message"`
+			} `json:"error"`
+		}
+		if json.Unmarshal(respBody, &errResp) == nil && errResp.Error.Message != "" {
+			return nil, fmt.Errorf("%s: %s", errResp.Error.Code, errResp.Error.Message)
+		}
+		return nil, fmt.Errorf("API error %d: %s", resp.StatusCode, string(respBody))
+	}
+
+	return respBody, nil
+}
+
 // Put performs a PUT request with raw bytes (for file uploads).
 func (c *Client) Put(ctx context.Context, path string, data []byte, contentType string) ([]byte, error) {
 	u := graphBaseURL + path

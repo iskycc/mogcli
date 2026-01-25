@@ -4,17 +4,22 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"strings"
 
 	"github.com/visionik/mogcli/internal/graph"
 )
 
 // OneNoteCmd handles OneNote operations.
 type OneNoteCmd struct {
-	Notebooks OneNoteNotebooksCmd `cmd:"" help:"List notebooks"`
-	Sections  OneNoteSectionsCmd  `cmd:"" help:"List sections in a notebook"`
-	Pages     OneNotePagesCmd     `cmd:"" help:"List pages in a section"`
-	Get       OneNoteGetCmd       `cmd:"" help:"Get page content"`
-	Search    OneNoteSearchCmd    `cmd:"" help:"Search OneNote"`
+	Notebooks      OneNoteNotebooksCmd      `cmd:"" help:"List notebooks"`
+	Sections       OneNoteSectionsCmd       `cmd:"" help:"List sections in a notebook"`
+	Pages          OneNotePagesCmd          `cmd:"" help:"List pages in a section"`
+	Get            OneNoteGetCmd            `cmd:"" help:"Get page content"`
+	Search         OneNoteSearchCmd         `cmd:"" help:"Search OneNote"`
+	CreateNotebook OneNoteCreateNotebookCmd `cmd:"" name:"create-notebook" help:"Create a new notebook"`
+	CreateSection  OneNoteCreateSectionCmd  `cmd:"" name:"create-section" help:"Create a new section"`
+	CreatePage     OneNoteCreatePageCmd     `cmd:"" name:"create-page" help:"Create a new page"`
+	Delete         OneNoteDeleteCmd         `cmd:"" help:"Delete a page"`
 }
 
 // OneNoteNotebooksCmd lists notebooks.
@@ -210,4 +215,169 @@ type Section struct {
 type Page struct {
 	ID    string `json:"id"`
 	Title string `json:"title"`
+}
+
+// OneNoteCreateNotebookCmd creates a notebook.
+type OneNoteCreateNotebookCmd struct {
+	Name string `arg:"" help:"Notebook name"`
+}
+
+// Run executes onenote create-notebook.
+func (c *OneNoteCreateNotebookCmd) Run(root *Root) error {
+	client, err := graph.NewClient()
+	if err != nil {
+		return err
+	}
+
+	body := map[string]interface{}{
+		"displayName": c.Name,
+	}
+
+	ctx := context.Background()
+	data, err := client.Post(ctx, "/me/onenote/notebooks", body)
+	if err != nil {
+		return err
+	}
+
+	var nb Notebook
+	if err := json.Unmarshal(data, &nb); err != nil {
+		return err
+	}
+
+	if root.JSON {
+		return outputJSON(nb)
+	}
+
+	fmt.Println("✓ Notebook created")
+	fmt.Printf("  Name: %s\n", nb.DisplayName)
+	fmt.Printf("  ID: %s\n", graph.FormatID(nb.ID))
+	return nil
+}
+
+// OneNoteCreateSectionCmd creates a section.
+type OneNoteCreateSectionCmd struct {
+	NotebookID string `arg:"" help:"Notebook ID"`
+	Name       string `arg:"" help:"Section name"`
+}
+
+// Run executes onenote create-section.
+func (c *OneNoteCreateSectionCmd) Run(root *Root) error {
+	client, err := graph.NewClient()
+	if err != nil {
+		return err
+	}
+
+	body := map[string]interface{}{
+		"displayName": c.Name,
+	}
+
+	ctx := context.Background()
+	path := fmt.Sprintf("/me/onenote/notebooks/%s/sections", graph.ResolveID(c.NotebookID))
+
+	data, err := client.Post(ctx, path, body)
+	if err != nil {
+		return err
+	}
+
+	var section Section
+	if err := json.Unmarshal(data, &section); err != nil {
+		return err
+	}
+
+	if root.JSON {
+		return outputJSON(section)
+	}
+
+	fmt.Println("✓ Section created")
+	fmt.Printf("  Name: %s\n", section.DisplayName)
+	fmt.Printf("  ID: %s\n", graph.FormatID(section.ID))
+	return nil
+}
+
+// OneNoteCreatePageCmd creates a page.
+type OneNoteCreatePageCmd struct {
+	SectionID string `arg:"" help:"Section ID"`
+	Title     string `arg:"" help:"Page title"`
+	Content   string `arg:"" optional:"" help:"Page content (optional)"`
+}
+
+// Run executes onenote create-page.
+func (c *OneNoteCreatePageCmd) Run(root *Root) error {
+	client, err := graph.NewClient()
+	if err != nil {
+		return err
+	}
+
+	// OneNote requires HTML presentation format
+	htmlContent := fmt.Sprintf(`<!DOCTYPE html>
+<html>
+  <head>
+    <title>%s</title>
+  </head>
+  <body>
+    <p>%s</p>
+  </body>
+</html>`, escapeHTML(c.Title), escapeHTML(c.Content))
+
+	ctx := context.Background()
+	path := fmt.Sprintf("/me/onenote/sections/%s/pages", graph.ResolveID(c.SectionID))
+
+	data, err := client.PostHTML(ctx, path, htmlContent)
+	if err != nil {
+		return err
+	}
+
+	var page Page
+	if err := json.Unmarshal(data, &page); err != nil {
+		return err
+	}
+
+	if root.JSON {
+		return outputJSON(page)
+	}
+
+	fmt.Println("✓ Page created")
+	fmt.Printf("  Title: %s\n", page.Title)
+	fmt.Printf("  ID: %s\n", graph.FormatID(page.ID))
+	return nil
+}
+
+// OneNoteDeleteCmd deletes a page.
+type OneNoteDeleteCmd struct {
+	PageID string `arg:"" help:"Page ID"`
+}
+
+// Run executes onenote delete.
+func (c *OneNoteDeleteCmd) Run(root *Root) error {
+	client, err := graph.NewClient()
+	if err != nil {
+		return err
+	}
+
+	ctx := context.Background()
+	path := fmt.Sprintf("/me/onenote/pages/%s", graph.ResolveID(c.PageID))
+
+	if err := client.Delete(ctx, path); err != nil {
+		return err
+	}
+
+	if root.JSON {
+		return outputJSON(map[string]interface{}{"success": true, "deleted": c.PageID})
+	}
+
+	fmt.Println("✓ Page deleted")
+	return nil
+}
+
+// escapeHTML escapes HTML special characters.
+func escapeHTML(text string) string {
+	if text == "" {
+		return ""
+	}
+	text = strings.ReplaceAll(text, "&", "&amp;")
+	text = strings.ReplaceAll(text, "<", "&lt;")
+	text = strings.ReplaceAll(text, ">", "&gt;")
+	text = strings.ReplaceAll(text, "\"", "&quot;")
+	text = strings.ReplaceAll(text, "'", "&#39;")
+	return text
 }

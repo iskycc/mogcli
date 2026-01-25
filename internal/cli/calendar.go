@@ -20,6 +20,7 @@ type CalendarCmd struct {
 	Calendars CalendarCalendarsCmd `cmd:"" help:"List calendars"`
 	Respond   CalendarRespondCmd   `cmd:"" help:"Respond to an event invitation"`
 	FreeBusy  CalendarFreeBusyCmd  `cmd:"" help:"Get free/busy information"`
+	ACL       CalendarACLCmd       `cmd:"" help:"List calendar permissions"`
 }
 
 // CalendarListCmd lists events.
@@ -378,6 +379,11 @@ type CalendarFreeBusyCmd struct {
 	End    string   `help:"End time (ISO format)" required:""`
 }
 
+// CalendarACLCmd lists calendar permissions.
+type CalendarACLCmd struct {
+	Calendar string `arg:"" optional:"" help:"Calendar ID (default: primary)"`
+}
+
 // Run executes calendar freebusy.
 func (c *CalendarFreeBusyCmd) Run(root *Root) error {
 	client, err := graph.NewClient()
@@ -455,6 +461,86 @@ type Calendar struct {
 	ID                string `json:"id"`
 	Name              string `json:"name"`
 	IsDefaultCalendar bool   `json:"isDefaultCalendar"`
+}
+
+// CalendarPermission represents a calendar permission (ACL entry).
+type CalendarPermission struct {
+	ID                  string        `json:"id"`
+	Role                string        `json:"role"`
+	AllowedRoles        []string      `json:"allowedRoles"`
+	EmailAddress        *EmailAddress `json:"emailAddress"`
+	IsRemovable         bool          `json:"isRemovable"`
+	IsInsideOrganization bool         `json:"isInsideOrganization"`
+}
+
+// EmailAddress represents an email address in a permission.
+type EmailAddress struct {
+	Name    string `json:"name"`
+	Address string `json:"address"`
+}
+
+// Run executes calendar acl.
+func (c *CalendarACLCmd) Run(root *Root) error {
+	client, err := graph.NewClient()
+	if err != nil {
+		return err
+	}
+
+	ctx := context.Background()
+	path := "/me/calendar/calendarPermissions"
+	if c.Calendar != "" {
+		path = fmt.Sprintf("/me/calendars/%s/calendarPermissions", graph.ResolveID(c.Calendar))
+	}
+
+	data, err := client.Get(ctx, path, nil)
+	if err != nil {
+		return err
+	}
+
+	var resp struct {
+		Value []CalendarPermission `json:"value"`
+	}
+	if err := json.Unmarshal(data, &resp); err != nil {
+		return err
+	}
+
+	if root.JSON {
+		return outputJSON(resp.Value)
+	}
+
+	if len(resp.Value) == 0 {
+		fmt.Println("No permissions found")
+		return nil
+	}
+
+	fmt.Println("Calendar Permissions")
+	fmt.Println()
+	for _, perm := range resp.Value {
+		email := "(no email)"
+		name := ""
+		if perm.EmailAddress != nil {
+			if perm.EmailAddress.Address != "" {
+				email = perm.EmailAddress.Address
+			}
+			if perm.EmailAddress.Name != "" {
+				name = perm.EmailAddress.Name
+			}
+		}
+		removable := ""
+		if !perm.IsRemovable {
+			removable = " (locked)"
+		}
+		if name != "" {
+			fmt.Printf("%-12s %s <%s>%s\n", perm.Role, name, email, removable)
+		} else {
+			fmt.Printf("%-12s %s%s\n", perm.Role, email, removable)
+		}
+		if root.Verbose {
+			fmt.Printf("  ID: %s\n", perm.ID)
+		}
+	}
+	fmt.Printf("\n%d permission(s)\n", len(resp.Value))
+	return nil
 }
 
 func printEvent(event Event, verbose bool) {
