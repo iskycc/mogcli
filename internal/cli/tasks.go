@@ -27,7 +27,7 @@ type TasksListsCmd struct{}
 
 // Run executes tasks lists.
 func (c *TasksListsCmd) Run(root *Root) error {
-	client, err := graph.NewClient()
+	client, err := root.GetClient()
 	if err != nil {
 		return err
 	}
@@ -67,7 +67,7 @@ type TasksListCmd struct {
 
 // Run executes tasks list.
 func (c *TasksListCmd) Run(root *Root) error {
-	client, err := graph.NewClient()
+	client, err := root.GetClient()
 	if err != nil {
 		return err
 	}
@@ -152,7 +152,7 @@ type TasksAddCmd struct {
 
 // Run executes tasks add.
 func (c *TasksAddCmd) Run(root *Root) error {
-	client, err := graph.NewClient()
+	client, err := root.GetClient()
 	if err != nil {
 		return err
 	}
@@ -235,7 +235,7 @@ type TasksUpdateCmd struct {
 
 // Run executes tasks update.
 func (c *TasksUpdateCmd) Run(root *Root) error {
-	client, err := graph.NewClient()
+	client, err := root.GetClient()
 	if err != nil {
 		return err
 	}
@@ -288,7 +288,7 @@ type TasksDoneCmd struct {
 
 // Run executes tasks done.
 func (c *TasksDoneCmd) Run(root *Root) error {
-	client, err := graph.NewClient()
+	client, err := root.GetClient()
 	if err != nil {
 		return err
 	}
@@ -323,7 +323,7 @@ type TasksUndoCmd struct {
 
 // Run executes tasks undo.
 func (c *TasksUndoCmd) Run(root *Root) error {
-	client, err := graph.NewClient()
+	client, err := root.GetClient()
 	if err != nil {
 		return err
 	}
@@ -358,7 +358,7 @@ type TasksDeleteCmd struct {
 
 // Run executes tasks delete.
 func (c *TasksDeleteCmd) Run(root *Root) error {
-	client, err := graph.NewClient()
+	client, err := root.GetClient()
 	if err != nil {
 		return err
 	}
@@ -387,7 +387,7 @@ type TasksClearCmd struct {
 
 // Run executes tasks clear.
 func (c *TasksClearCmd) Run(root *Root) error {
-	client, err := graph.NewClient()
+	client, err := root.GetClient()
 	if err != nil {
 		return err
 	}

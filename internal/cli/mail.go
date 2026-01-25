@@ -32,7 +32,7 @@ type MailSearchCmd struct {
 
 // Run executes mail search.
 func (c *MailSearchCmd) Run(root *Root) error {
-	client, err := graph.NewClient()
+	client, err := root.GetClient()
 	if err != nil {
 		return err
 	}
@@ -88,7 +88,7 @@ type MailGetCmd struct {
 
 // Run executes mail get.
 func (c *MailGetCmd) Run(root *Root) error {
-	client, err := graph.NewClient()
+	client, err := root.GetClient()
 	if err != nil {
 		return err
 	}
@@ -128,7 +128,7 @@ type MailSendCmd struct {
 
 // Run executes mail send.
 func (c *MailSendCmd) Run(root *Root) error {
-	client, err := graph.NewClient()
+	client, err := root.GetClient()
 	if err != nil {
 		return err
 	}
@@ -205,7 +205,7 @@ type MailFoldersCmd struct{}
 
 // Run executes mail folders.
 func (c *MailFoldersCmd) Run(root *Root) error {
-	client, err := graph.NewClient()
+	client, err := root.GetClient()
 	if err != nil {
 		return err
 	}
@@ -253,7 +253,7 @@ type MailDraftsListCmd struct {
 
 // Run executes drafts list.
 func (c *MailDraftsListCmd) Run(root *Root) error {
-	client, err := graph.NewClient()
+	client, err := root.GetClient()
 	if err != nil {
 		return err
 	}
@@ -299,7 +299,7 @@ type MailDraftsCreateCmd struct {
 
 // Run executes drafts create.
 func (c *MailDraftsCreateCmd) Run(root *Root) error {
-	client, err := graph.NewClient()
+	client, err := root.GetClient()
 	if err != nil {
 		return err
 	}
@@ -344,7 +344,7 @@ type MailDraftsSendCmd struct {
 
 // Run executes drafts send.
 func (c *MailDraftsSendCmd) Run(root *Root) error {
-	client, err := graph.NewClient()
+	client, err := root.GetClient()
 	if err != nil {
 		return err
 	}
@@ -367,7 +367,7 @@ type MailDraftsDeleteCmd struct {
 
 // Run executes drafts delete.
 func (c *MailDraftsDeleteCmd) Run(root *Root) error {
-	client, err := graph.NewClient()
+	client, err := root.GetClient()
 	if err != nil {
 		return err
 	}
@@ -395,7 +395,7 @@ type MailAttachmentListCmd struct {
 
 // Run executes attachment list.
 func (c *MailAttachmentListCmd) Run(root *Root) error {
-	client, err := graph.NewClient()
+	client, err := root.GetClient()
 	if err != nil {
 		return err
 	}
@@ -433,7 +433,7 @@ type MailAttachmentDownloadCmd struct {
 
 // Run executes attachment download.
 func (c *MailAttachmentDownloadCmd) Run(root *Root) error {
-	client, err := graph.NewClient()
+	client, err := root.GetClient()
 	if err != nil {
 		return err
 	}

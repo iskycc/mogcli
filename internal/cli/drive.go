@@ -32,7 +32,7 @@ type DriveLsCmd struct {
 
 // Run executes drive ls.
 func (c *DriveLsCmd) Run(root *Root) error {
-	client, err := graph.NewClient()
+	client, err := root.GetClient()
 	if err != nil {
 		return err
 	}
@@ -86,7 +86,7 @@ type DriveSearchCmd struct {
 
 // Run executes drive search.
 func (c *DriveSearchCmd) Run(root *Root) error {
-	client, err := graph.NewClient()
+	client, err := root.GetClient()
 	if err != nil {
 		return err
 	}
@@ -129,7 +129,7 @@ type DriveGetCmd struct {
 
 // Run executes drive get.
 func (c *DriveGetCmd) Run(root *Root) error {
-	client, err := graph.NewClient()
+	client, err := root.GetClient()
 	if err != nil {
 		return err
 	}
@@ -170,7 +170,7 @@ type DriveDownloadCmd struct {
 
 // Run executes drive download.
 func (c *DriveDownloadCmd) Run(root *Root) error {
-	client, err := graph.NewClient()
+	client, err := root.GetClient()
 	if err != nil {
 		return err
 	}
@@ -200,7 +200,7 @@ type DriveUploadCmd struct {
 
 // Run executes drive upload.
 func (c *DriveUploadCmd) Run(root *Root) error {
-	client, err := graph.NewClient()
+	client, err := root.GetClient()
 	if err != nil {
 		return err
 	}
@@ -247,7 +247,7 @@ type DriveMkdirCmd struct {
 
 // Run executes drive mkdir.
 func (c *DriveMkdirCmd) Run(root *Root) error {
-	client, err := graph.NewClient()
+	client, err := root.GetClient()
 	if err != nil {
 		return err
 	}
@@ -285,7 +285,7 @@ type DriveMoveCmd struct {
 
 // Run executes drive move.
 func (c *DriveMoveCmd) Run(root *Root) error {
-	client, err := graph.NewClient()
+	client, err := root.GetClient()
 	if err != nil {
 		return err
 	}
@@ -316,7 +316,7 @@ type DriveCopyCmd struct {
 
 // Run executes drive copy.
 func (c *DriveCopyCmd) Run(root *Root) error {
-	client, err := graph.NewClient()
+	client, err := root.GetClient()
 	if err != nil {
 		return err
 	}
@@ -345,7 +345,7 @@ type DriveRenameCmd struct {
 
 // Run executes drive rename.
 func (c *DriveRenameCmd) Run(root *Root) error {
-	client, err := graph.NewClient()
+	client, err := root.GetClient()
 	if err != nil {
 		return err
 	}
@@ -373,7 +373,7 @@ type DriveDeleteCmd struct {
 
 // Run executes drive delete.
 func (c *DriveDeleteCmd) Run(root *Root) error {
-	client, err := graph.NewClient()
+	client, err := root.GetClient()
 	if err != nil {
 		return err
 	}

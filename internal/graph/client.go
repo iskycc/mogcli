@@ -21,14 +21,25 @@ const (
 	authURL      = "https://login.microsoftonline.com/common/oauth2/v2.0"
 )
 
-// Client is a Microsoft Graph API client.
-type Client struct {
+// Client defines the interface for Microsoft Graph API operations.
+type Client interface {
+	Get(ctx context.Context, path string, query url.Values) ([]byte, error)
+	Post(ctx context.Context, path string, body interface{}) ([]byte, error)
+	Patch(ctx context.Context, path string, body interface{}) ([]byte, error)
+	Delete(ctx context.Context, path string) error
+	PostHTML(ctx context.Context, path string, html string) ([]byte, error)
+	Put(ctx context.Context, path string, data []byte, contentType string) ([]byte, error)
+}
+
+// GraphClient is the concrete implementation of the Client interface.
+type GraphClient struct {
 	httpClient *http.Client
 	token      string
 }
 
 // NewClient creates a new Graph client with the stored access token.
-func NewClient() (*Client, error) {
+// Returns the Client interface for dependency injection support.
+func NewClient() (Client, error) {
 	tokens, err := config.LoadTokens()
 	if err != nil {
 		return nil, err
@@ -54,35 +65,43 @@ func NewClient() (*Client, error) {
 		tokens = newTokens
 	}
 
-	return &Client{
+	return &GraphClient{
 		httpClient: &http.Client{Timeout: 30 * time.Second},
 		token:      tokens.AccessToken,
 	}, nil
 }
 
+// NewClientWithToken creates a new Graph client with a provided token (useful for testing).
+func NewClientWithToken(token string) Client {
+	return &GraphClient{
+		httpClient: &http.Client{Timeout: 30 * time.Second},
+		token:      token,
+	}
+}
+
 // Get performs a GET request to the Graph API.
-func (c *Client) Get(ctx context.Context, path string, query url.Values) ([]byte, error) {
+func (c *GraphClient) Get(ctx context.Context, path string, query url.Values) ([]byte, error) {
 	return c.request(ctx, "GET", path, query, nil)
 }
 
 // Post performs a POST request to the Graph API.
-func (c *Client) Post(ctx context.Context, path string, body interface{}) ([]byte, error) {
+func (c *GraphClient) Post(ctx context.Context, path string, body interface{}) ([]byte, error) {
 	return c.request(ctx, "POST", path, nil, body)
 }
 
 // Patch performs a PATCH request to the Graph API.
-func (c *Client) Patch(ctx context.Context, path string, body interface{}) ([]byte, error) {
+func (c *GraphClient) Patch(ctx context.Context, path string, body interface{}) ([]byte, error) {
 	return c.request(ctx, "PATCH", path, nil, body)
 }
 
 // Delete performs a DELETE request to the Graph API.
-func (c *Client) Delete(ctx context.Context, path string) error {
+func (c *GraphClient) Delete(ctx context.Context, path string) error {
 	_, err := c.request(ctx, "DELETE", path, nil, nil)
 	return err
 }
 
 // PostHTML performs a POST request with HTML/XHTML content (for OneNote pages).
-func (c *Client) PostHTML(ctx context.Context, path string, html string) ([]byte, error) {
+func (c *GraphClient) PostHTML(ctx context.Context, path string, html string) ([]byte, error) {
 	u := graphBaseURL + path
 
 	req, err := http.NewRequestWithContext(ctx, "POST", u, strings.NewReader(html))
@@ -121,7 +140,7 @@ func (c *Client) PostHTML(ctx context.Context, path string, html string) ([]byte
 }
 
 // Put performs a PUT request with raw bytes (for file uploads).
-func (c *Client) Put(ctx context.Context, path string, data []byte, contentType string) ([]byte, error) {
+func (c *GraphClient) Put(ctx context.Context, path string, data []byte, contentType string) ([]byte, error) {
 	u := graphBaseURL + path
 
 	req, err := http.NewRequestWithContext(ctx, "PUT", u, bytes.NewReader(data))
@@ -159,7 +178,7 @@ func (c *Client) Put(ctx context.Context, path string, data []byte, contentType 
 	return respBody, nil
 }
 
-func (c *Client) request(ctx context.Context, method, path string, query url.Values, body interface{}) ([]byte, error) {
+func (c *GraphClient) request(ctx context.Context, method, path string, query url.Values, body interface{}) ([]byte, error) {
 	u := graphBaseURL + path
 	if query != nil && len(query) > 0 {
 		u += "?" + query.Encode()

@@ -109,7 +109,7 @@ func TestClient_Get(t *testing.T) {
 	defer server.Close()
 
 	// Create client that uses mock server
-	client := &Client{
+	client := &GraphClient{
 		httpClient: server.Client(),
 		token:      "test-access-token",
 	}
@@ -149,7 +149,7 @@ func TestClient_ErrorResponse(t *testing.T) {
 	}))
 	defer server.Close()
 
-	client := &Client{
+	client := &GraphClient{
 		httpClient: server.Client(),
 		token:      "test-access-token",
 	}
@@ -182,7 +182,7 @@ func TestClient_Post(t *testing.T) {
 	}))
 	defer server.Close()
 
-	client := &Client{
+	client := &GraphClient{
 		httpClient: server.Client(),
 		token:      "test-access-token",
 	}
@@ -214,7 +214,7 @@ func TestClient_Delete(t *testing.T) {
 	}))
 	defer server.Close()
 
-	client := &Client{
+	client := &GraphClient{
 		httpClient: server.Client(),
 		token:      "test-access-token",
 	}
@@ -243,7 +243,7 @@ func TestClient_QueryParams(t *testing.T) {
 	}))
 	defer server.Close()
 
-	client := &Client{
+	client := &GraphClient{
 		httpClient: server.Client(),
 		token:      "test-access-token",
 	}

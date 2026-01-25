@@ -27,7 +27,7 @@ type WordListCmd struct {
 
 // Run executes word list.
 func (c *WordListCmd) Run(root *Root) error {
-	client, err := graph.NewClient()
+	client, err := root.GetClient()
 	if err != nil {
 		return err
 	}
@@ -86,7 +86,7 @@ type WordGetCmd struct {
 
 // Run executes word get.
 func (c *WordGetCmd) Run(root *Root) error {
-	client, err := graph.NewClient()
+	client, err := root.GetClient()
 	if err != nil {
 		return err
 	}
@@ -128,7 +128,7 @@ type WordExportCmd struct {
 
 // Run executes word export.
 func (c *WordExportCmd) Run(root *Root) error {
-	client, err := graph.NewClient()
+	client, err := root.GetClient()
 	if err != nil {
 		return err
 	}
@@ -173,7 +173,7 @@ type WordCopyCmd struct {
 
 // Run executes word copy.
 func (c *WordCopyCmd) Run(root *Root) error {
-	client, err := graph.NewClient()
+	client, err := root.GetClient()
 	if err != nil {
 		return err
 	}
@@ -212,7 +212,7 @@ type WordCreateCmd struct {
 
 // Run executes word create.
 func (c *WordCreateCmd) Run(root *Root) error {
-	client, err := graph.NewClient()
+	client, err := root.GetClient()
 	if err != nil {
 		return err
 	}

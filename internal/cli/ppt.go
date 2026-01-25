@@ -27,7 +27,7 @@ type PPTListCmd struct {
 
 // Run executes ppt list.
 func (c *PPTListCmd) Run(root *Root) error {
-	client, err := graph.NewClient()
+	client, err := root.GetClient()
 	if err != nil {
 		return err
 	}
@@ -86,7 +86,7 @@ type PPTGetCmd struct {
 
 // Run executes ppt get.
 func (c *PPTGetCmd) Run(root *Root) error {
-	client, err := graph.NewClient()
+	client, err := root.GetClient()
 	if err != nil {
 		return err
 	}
@@ -128,7 +128,7 @@ type PPTExportCmd struct {
 
 // Run executes ppt export.
 func (c *PPTExportCmd) Run(root *Root) error {
-	client, err := graph.NewClient()
+	client, err := root.GetClient()
 	if err != nil {
 		return err
 	}
@@ -173,7 +173,7 @@ type PPTCopyCmd struct {
 
 // Run executes ppt copy.
 func (c *PPTCopyCmd) Run(root *Root) error {
-	client, err := graph.NewClient()
+	client, err := root.GetClient()
 	if err != nil {
 		return err
 	}
@@ -212,7 +212,7 @@ type PPTCreateCmd struct {
 
 // Run executes ppt create.
 func (c *PPTCreateCmd) Run(root *Root) error {
-	client, err := graph.NewClient()
+	client, err := root.GetClient()
 	if err != nil {
 		return err
 	}

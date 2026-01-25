@@ -27,7 +27,7 @@ type OneNoteNotebooksCmd struct{}
 
 // Run executes onenote notebooks.
 func (c *OneNoteNotebooksCmd) Run(root *Root) error {
-	client, err := graph.NewClient()
+	client, err := root.GetClient()
 	if err != nil {
 		return err
 	}
@@ -62,7 +62,7 @@ type OneNoteSectionsCmd struct {
 
 // Run executes onenote sections.
 func (c *OneNoteSectionsCmd) Run(root *Root) error {
-	client, err := graph.NewClient()
+	client, err := root.GetClient()
 	if err != nil {
 		return err
 	}
@@ -99,7 +99,7 @@ type OneNotePagesCmd struct {
 
 // Run executes onenote pages.
 func (c *OneNotePagesCmd) Run(root *Root) error {
-	client, err := graph.NewClient()
+	client, err := root.GetClient()
 	if err != nil {
 		return err
 	}
@@ -137,7 +137,7 @@ type OneNoteGetCmd struct {
 
 // Run executes onenote get.
 func (c *OneNoteGetCmd) Run(root *Root) error {
-	client, err := graph.NewClient()
+	client, err := root.GetClient()
 	if err != nil {
 		return err
 	}
@@ -167,7 +167,7 @@ type OneNoteSearchCmd struct {
 
 // Run executes onenote search.
 func (c *OneNoteSearchCmd) Run(root *Root) error {
-	client, err := graph.NewClient()
+	client, err := root.GetClient()
 	if err != nil {
 		return err
 	}
@@ -224,7 +224,7 @@ type OneNoteCreateNotebookCmd struct {
 
 // Run executes onenote create-notebook.
 func (c *OneNoteCreateNotebookCmd) Run(root *Root) error {
-	client, err := graph.NewClient()
+	client, err := root.GetClient()
 	if err != nil {
 		return err
 	}
@@ -262,7 +262,7 @@ type OneNoteCreateSectionCmd struct {
 
 // Run executes onenote create-section.
 func (c *OneNoteCreateSectionCmd) Run(root *Root) error {
-	client, err := graph.NewClient()
+	client, err := root.GetClient()
 	if err != nil {
 		return err
 	}
@@ -303,7 +303,7 @@ type OneNoteCreatePageCmd struct {
 
 // Run executes onenote create-page.
 func (c *OneNoteCreatePageCmd) Run(root *Root) error {
-	client, err := graph.NewClient()
+	client, err := root.GetClient()
 	if err != nil {
 		return err
 	}
@@ -349,7 +349,7 @@ type OneNoteDeleteCmd struct {
 
 // Run executes onenote delete.
 func (c *OneNoteDeleteCmd) Run(root *Root) error {
-	client, err := graph.NewClient()
+	client, err := root.GetClient()
 	if err != nil {
 		return err
 	}

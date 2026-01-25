@@ -27,7 +27,7 @@ type ContactsListCmd struct {
 
 // Run executes contacts list.
 func (c *ContactsListCmd) Run(root *Root) error {
-	client, err := graph.NewClient()
+	client, err := root.GetClient()
 	if err != nil {
 		return err
 	}
@@ -70,7 +70,7 @@ type ContactsSearchCmd struct {
 
 // Run executes contacts search.
 func (c *ContactsSearchCmd) Run(root *Root) error {
-	client, err := graph.NewClient()
+	client, err := root.GetClient()
 	if err != nil {
 		return err
 	}
@@ -112,7 +112,7 @@ type ContactsGetCmd struct {
 
 // Run executes contacts get.
 func (c *ContactsGetCmd) Run(root *Root) error {
-	client, err := graph.NewClient()
+	client, err := root.GetClient()
 	if err != nil {
 		return err
 	}
@@ -165,7 +165,7 @@ type ContactsCreateCmd struct {
 
 // Run executes contacts create.
 func (c *ContactsCreateCmd) Run(root *Root) error {
-	client, err := graph.NewClient()
+	client, err := root.GetClient()
 	if err != nil {
 		return err
 	}
@@ -219,7 +219,7 @@ type ContactsUpdateCmd struct {
 
 // Run executes contacts update.
 func (c *ContactsUpdateCmd) Run(root *Root) error {
-	client, err := graph.NewClient()
+	client, err := root.GetClient()
 	if err != nil {
 		return err
 	}
@@ -265,7 +265,7 @@ type ContactsDeleteCmd struct {
 
 // Run executes contacts delete.
 func (c *ContactsDeleteCmd) Run(root *Root) error {
-	client, err := graph.NewClient()
+	client, err := root.GetClient()
 	if err != nil {
 		return err
 	}
@@ -288,7 +288,7 @@ type ContactsDirectoryCmd struct {
 
 // Run executes contacts directory.
 func (c *ContactsDirectoryCmd) Run(root *Root) error {
-	client, err := graph.NewClient()
+	client, err := root.GetClient()
 	if err != nil {
 		return err
 	}

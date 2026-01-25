@@ -33,7 +33,7 @@ type ExcelListCmd struct {
 
 // Run executes excel list.
 func (c *ExcelListCmd) Run(root *Root) error {
-	client, err := graph.NewClient()
+	client, err := root.GetClient()
 	if err != nil {
 		return err
 	}
@@ -85,7 +85,7 @@ type ExcelMetadataCmd struct {
 
 // Run executes excel metadata.
 func (c *ExcelMetadataCmd) Run(root *Root) error {
-	client, err := graph.NewClient()
+	client, err := root.GetClient()
 	if err != nil {
 		return err
 	}
@@ -140,7 +140,7 @@ type ExcelGetCmd struct {
 
 // Run executes excel get.
 func (c *ExcelGetCmd) Run(root *Root) error {
-	client, err := graph.NewClient()
+	client, err := root.GetClient()
 	if err != nil {
 		return err
 	}
@@ -256,7 +256,7 @@ type ExcelUpdateCmd struct {
 
 // Run executes excel update.
 func (c *ExcelUpdateCmd) Run(root *Root) error {
-	client, err := graph.NewClient()
+	client, err := root.GetClient()
 	if err != nil {
 		return err
 	}
@@ -301,7 +301,7 @@ type ExcelAppendCmd struct {
 
 // Run executes excel append.
 func (c *ExcelAppendCmd) Run(root *Root) error {
-	client, err := graph.NewClient()
+	client, err := root.GetClient()
 	if err != nil {
 		return err
 	}
@@ -347,7 +347,7 @@ type ExcelCreateCmd struct {
 
 // Run executes excel create.
 func (c *ExcelCreateCmd) Run(root *Root) error {
-	client, err := graph.NewClient()
+	client, err := root.GetClient()
 	if err != nil {
 		return err
 	}
@@ -399,7 +399,7 @@ type ExcelAddSheetCmd struct {
 
 // Run executes excel add-sheet.
 func (c *ExcelAddSheetCmd) Run(root *Root) error {
-	client, err := graph.NewClient()
+	client, err := root.GetClient()
 	if err != nil {
 		return err
 	}
@@ -439,7 +439,7 @@ type ExcelTablesCmd struct {
 
 // Run executes excel tables.
 func (c *ExcelTablesCmd) Run(root *Root) error {
-	client, err := graph.NewClient()
+	client, err := root.GetClient()
 	if err != nil {
 		return err
 	}
@@ -493,7 +493,7 @@ type ExcelClearCmd struct {
 
 // Run executes excel clear.
 func (c *ExcelClearCmd) Run(root *Root) error {
-	client, err := graph.NewClient()
+	client, err := root.GetClient()
 	if err != nil {
 		return err
 	}
@@ -531,7 +531,7 @@ type ExcelExportCmd struct {
 
 // Run executes excel export.
 func (c *ExcelExportCmd) Run(root *Root) error {
-	client, err := graph.NewClient()
+	client, err := root.GetClient()
 	if err != nil {
 		return err
 	}
@@ -612,7 +612,7 @@ type ExcelCopyCmd struct {
 
 // Run executes excel copy.
 func (c *ExcelCopyCmd) Run(root *Root) error {
-	client, err := graph.NewClient()
+	client, err := root.GetClient()
 	if err != nil {
 		return err
 	}
@@ -665,7 +665,7 @@ type Table struct {
 	ShowTotals  bool   `json:"showTotals"`
 }
 
-func getWorksheets(client *graph.Client, ctx context.Context, workbookID string) ([]Worksheet, error) {
+func getWorksheets(client graph.Client, ctx context.Context, workbookID string) ([]Worksheet, error) {
 	path := fmt.Sprintf("/me/drive/items/%s/workbook/worksheets", workbookID)
 	data, err := client.Get(ctx, path, nil)
 	if err != nil {

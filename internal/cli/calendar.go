@@ -33,7 +33,7 @@ type CalendarListCmd struct {
 
 // Run executes calendar list.
 func (c *CalendarListCmd) Run(root *Root) error {
-	client, err := graph.NewClient()
+	client, err := root.GetClient()
 	if err != nil {
 		return err
 	}
@@ -109,7 +109,7 @@ type CalendarGetCmd struct {
 
 // Run executes calendar get.
 func (c *CalendarGetCmd) Run(root *Root) error {
-	client, err := graph.NewClient()
+	client, err := root.GetClient()
 	if err != nil {
 		return err
 	}
@@ -149,7 +149,7 @@ type CalendarCreateCmd struct {
 
 // Run executes calendar create.
 func (c *CalendarCreateCmd) Run(root *Root) error {
-	client, err := graph.NewClient()
+	client, err := root.GetClient()
 	if err != nil {
 		return err
 	}
@@ -228,7 +228,7 @@ type CalendarUpdateCmd struct {
 
 // Run executes calendar update.
 func (c *CalendarUpdateCmd) Run(root *Root) error {
-	client, err := graph.NewClient()
+	client, err := root.GetClient()
 	if err != nil {
 		return err
 	}
@@ -274,7 +274,7 @@ type CalendarDeleteCmd struct {
 
 // Run executes calendar delete.
 func (c *CalendarDeleteCmd) Run(root *Root) error {
-	client, err := graph.NewClient()
+	client, err := root.GetClient()
 	if err != nil {
 		return err
 	}
@@ -295,7 +295,7 @@ type CalendarCalendarsCmd struct{}
 
 // Run executes calendars list.
 func (c *CalendarCalendarsCmd) Run(root *Root) error {
-	client, err := graph.NewClient()
+	client, err := root.GetClient()
 	if err != nil {
 		return err
 	}
@@ -336,7 +336,7 @@ type CalendarRespondCmd struct {
 
 // Run executes calendar respond.
 func (c *CalendarRespondCmd) Run(root *Root) error {
-	client, err := graph.NewClient()
+	client, err := root.GetClient()
 	if err != nil {
 		return err
 	}
@@ -386,7 +386,7 @@ type CalendarACLCmd struct {
 
 // Run executes calendar freebusy.
 func (c *CalendarFreeBusyCmd) Run(root *Root) error {
-	client, err := graph.NewClient()
+	client, err := root.GetClient()
 	if err != nil {
 		return err
 	}
@@ -481,7 +481,7 @@ type EmailAddress struct {
 
 // Run executes calendar acl.
 func (c *CalendarACLCmd) Run(root *Root) error {
-	client, err := graph.NewClient()
+	client, err := root.GetClient()
 	if err != nil {
 		return err
 	}
