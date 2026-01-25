@@ -45,6 +45,9 @@ This outputs the full dashdash-compliant documentation including:
 # Mail
 mog mail search "from:someone" --max 10
 mog mail send --to a@b.com --subject "Hi" --body "Hello"
+mog mail send --to a@b.com --subject "Report" --body-file report.md
+mog mail send --to a@b.com --subject "Newsletter" --body-html "<h1>Hello</h1>"
+cat draft.txt | mog mail send --to a@b.com --subject "Hi" --body-file -
 
 # Calendar
 mog calendar list
