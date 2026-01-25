@@ -20,12 +20,20 @@ type AuthCmd struct {
 // AuthLoginCmd logs in to Microsoft 365.
 type AuthLoginCmd struct {
 	ClientID string `help:"Azure AD client ID" required:"" env:"MOG_CLIENT_ID" name:"client-id"`
+	Storage  string `help:"Token storage: file or keychain" default:"file" enum:"file,keychain"`
 }
 
 // Run executes the auth login command.
 func (c *AuthLoginCmd) Run(root *Root) error {
-	// Save client ID
-	cfg := &config.Config{ClientID: c.ClientID}
+	// Set storage type
+	if c.Storage == "keychain" {
+		config.SetStorage(config.StorageKeyring)
+	} else {
+		config.SetStorage(config.StorageFile)
+	}
+
+	// Save client ID and storage preference
+	cfg := &config.Config{ClientID: c.ClientID, Storage: c.Storage}
 	if err := config.Save(cfg); err != nil {
 		return fmt.Errorf("failed to save config: %w", err)
 	}
@@ -51,13 +59,13 @@ func (c *AuthLoginCmd) Run(root *Root) error {
 		return fmt.Errorf("authorization failed: %w", err)
 	}
 
-	// Save tokens
-	if err := config.SaveTokens(tokens); err != nil {
+	// Save tokens using configured storage
+	if err := config.SaveTokensAuto(tokens); err != nil {
 		return fmt.Errorf("failed to save tokens: %w", err)
 	}
 
 	fmt.Println()
-	fmt.Println("✓ Successfully logged in!")
+	fmt.Printf("✓ Successfully logged in! (storage: %s)\n", c.Storage)
 	return nil
 }
 
@@ -66,13 +74,22 @@ type AuthStatusCmd struct{}
 
 // Run executes the auth status command.
 func (c *AuthStatusCmd) Run(root *Root) error {
-	tokens, err := config.LoadTokens()
+	// Load config to get storage preference
+	cfg, _ := config.Load()
+	if cfg != nil && cfg.Storage == "keychain" {
+		config.SetStorage(config.StorageKeyring)
+	}
+
+	tokens, err := config.LoadTokensAuto()
 	if err != nil {
 		fmt.Println("Status: Not logged in")
 		return nil
 	}
 
 	fmt.Println("Status: Logged in")
+	if cfg != nil && cfg.Storage != "" {
+		fmt.Printf("Storage: %s\n", cfg.Storage)
+	}
 
 	if tokens.ExpiresAt > 0 {
 		expiresAt := time.Unix(tokens.ExpiresAt, 0)
@@ -84,8 +101,7 @@ func (c *AuthStatusCmd) Run(root *Root) error {
 		}
 	}
 
-	cfg, err := config.Load()
-	if err == nil && cfg.ClientID != "" {
+	if cfg != nil && cfg.ClientID != "" {
 		fmt.Printf("Client ID: %s...%s\n", cfg.ClientID[:8], cfg.ClientID[len(cfg.ClientID)-4:])
 	}
 
@@ -97,7 +113,13 @@ type AuthLogoutCmd struct{}
 
 // Run executes the auth logout command.
 func (c *AuthLogoutCmd) Run(root *Root) error {
-	if err := config.DeleteTokens(); err != nil {
+	// Load config to get storage preference
+	cfg, _ := config.Load()
+	if cfg != nil && cfg.Storage == "keychain" {
+		config.SetStorage(config.StorageKeyring)
+	}
+
+	if err := config.DeleteTokensAuto(); err != nil {
 		return fmt.Errorf("failed to delete tokens: %w", err)
 	}
 

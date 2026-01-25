@@ -13,6 +13,7 @@ import (
 type Config struct {
 	ClientID   string `json:"client_id"`  // Go format
 	ClientIDv2 string `json:"clientId"`   // Node format
+	Storage    string `json:"storage"`    // Token storage: file or keychain
 }
 
 // GetClientID returns the client ID, handling both formats.
