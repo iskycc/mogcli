@@ -15,12 +15,29 @@ import (
 
 // MailCmd handles mail operations.
 type MailCmd struct {
+	List       MailListCmd       `cmd:"" help:"List messages (alias for search *)"`
 	Search     MailSearchCmd     `cmd:"" help:"Search messages"`
 	Get        MailGetCmd        `cmd:"" help:"Get a message"`
 	Send       MailSendCmd       `cmd:"" help:"Send an email"`
 	Folders    MailFoldersCmd    `cmd:"" help:"List mail folders"`
 	Drafts     MailDraftsCmd     `cmd:"" help:"Draft operations"`
 	Attachment MailAttachmentCmd `cmd:"" help:"Attachment operations"`
+}
+
+// MailListCmd lists messages (alias for search *).
+type MailListCmd struct {
+	Max    int    `help:"Maximum results" default:"25"`
+	Folder string `help:"Folder ID to list from"`
+}
+
+// Run executes mail list (delegates to search *).
+func (c *MailListCmd) Run(root *Root) error {
+	search := &MailSearchCmd{
+		Query:  "*",
+		Max:    c.Max,
+		Folder: c.Folder,
+	}
+	return search.Run(root)
 }
 
 // MailSearchCmd searches messages.
