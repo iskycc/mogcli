@@ -125,12 +125,62 @@ mog auth status
 
 ---
 
+## 👥 Multi-Account Support
+
+Manage multiple Microsoft 365 accounts (personal, work, etc.):
+
+### Setup Additional Accounts
+
+```bash
+# Login with a named account
+mog auth login --client-id YOUR_CLIENT_ID --account work
+mog auth login --client-id YOUR_CLIENT_ID --account personal
+```
+
+### Using Accounts
+
+```bash
+# Specify account per-command
+mog mail search "*" --account work
+mog calendar list --account personal
+
+# Or set via environment variable
+export MOG_ACCOUNT=work
+mog mail search "*"
+```
+
+### List Configured Accounts
+
+```bash
+mog auth list
+```
+
+### Account Storage
+
+Each account has isolated storage:
+```
+~/.config/mog/
+  default/
+    settings.json
+    tokens.json
+    slugs.json
+  work/
+    settings.json
+    tokens.json
+    slugs.json
+```
+
+Existing single-account setups are auto-migrated to `default`.
+
+---
+
 ## 📖 Command Reference
 
 ### Global Options
 
 | Option | Description |
 |--------|-------------|
+| `--account`, `-a` | Account name (default: "default", env: `MOG_ACCOUNT`) |
 | `--json` | Output JSON (best for scripting) |
 | `--plain` | Stable text output (TSV, no colors) |
 | `--verbose` | Show full IDs and extra details |

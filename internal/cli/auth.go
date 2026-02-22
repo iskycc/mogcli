@@ -15,6 +15,7 @@ type AuthCmd struct {
 	Login  AuthLoginCmd  `cmd:"" help:"Login to Microsoft 365"`
 	Status AuthStatusCmd `cmd:"" help:"Show authentication status"`
 	Logout AuthLogoutCmd `cmd:"" help:"Logout and clear tokens"`
+	List   AuthListCmd   `cmd:"" help:"List configured accounts"`
 }
 
 // AuthLoginCmd logs in to Microsoft 365.
@@ -39,7 +40,7 @@ func (c *AuthLoginCmd) Run(root *Root) error {
 	}
 
 	// Request device code
-	fmt.Println("Requesting device code...")
+	fmt.Printf("Requesting device code for account '%s'...\n", config.GetAccount())
 	dcResp, err := graph.RequestDeviceCode(c.ClientID)
 	if err != nil {
 		return fmt.Errorf("failed to request device code: %w", err)
@@ -65,7 +66,7 @@ func (c *AuthLoginCmd) Run(root *Root) error {
 	}
 
 	fmt.Println()
-	fmt.Printf("✓ Successfully logged in! (storage: %s)\n", c.Storage)
+	fmt.Printf("✓ Successfully logged in as account '%s' (storage: %s)\n", config.GetAccount(), c.Storage)
 	return nil
 }
 
@@ -79,6 +80,8 @@ func (c *AuthStatusCmd) Run(root *Root) error {
 	if cfg != nil && cfg.Storage == "keychain" {
 		config.SetStorage(config.StorageKeyring)
 	}
+
+	fmt.Printf("Account: %s\n", config.GetAccount())
 
 	tokens, err := config.LoadTokensAuto()
 	if err != nil {
@@ -127,7 +130,38 @@ func (c *AuthLogoutCmd) Run(root *Root) error {
 		return fmt.Errorf("failed to clear slugs: %w", err)
 	}
 
-	fmt.Println("✓ Logged out successfully")
+	fmt.Printf("✓ Logged out from account '%s' successfully\n", config.GetAccount())
+	return nil
+}
+
+// AuthListCmd lists configured accounts.
+type AuthListCmd struct{}
+
+// Run executes the auth list command.
+func (c *AuthListCmd) Run(root *Root) error {
+	accounts, err := config.ListAccounts()
+	if err != nil {
+		return fmt.Errorf("failed to list accounts: %w", err)
+	}
+
+	if len(accounts) == 0 {
+		fmt.Println("No accounts configured.")
+		fmt.Println("Run: mog auth login --client-id YOUR_CLIENT_ID")
+		return nil
+	}
+
+	currentAccount := config.GetAccount()
+	fmt.Println("Configured accounts:")
+	for _, account := range accounts {
+		if account == currentAccount {
+			fmt.Printf("  * %s (current)\n", account)
+		} else {
+			fmt.Printf("    %s\n", account)
+		}
+	}
+
+	fmt.Println()
+	fmt.Println("Use --account NAME or MOG_ACCOUNT=NAME to switch accounts.")
 	return nil
 }
 

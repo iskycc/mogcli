@@ -8,6 +8,25 @@ import (
 	"path/filepath"
 )
 
+// currentAccount holds the active account name.
+// Default is "default" for backward compatibility.
+var currentAccount = "default"
+
+// SetAccount sets the active account name.
+// Empty string is treated as "default".
+func SetAccount(name string) {
+	if name == "" {
+		currentAccount = "default"
+	} else {
+		currentAccount = name
+	}
+}
+
+// GetAccount returns the current account name.
+func GetAccount() string {
+	return currentAccount
+}
+
 // Config holds mog configuration.
 // Compatible with both Go and Node mog formats.
 type Config struct {
@@ -52,13 +71,89 @@ type Slugs struct {
 	SlugToID map[string]string `json:"slug_to_id"`
 }
 
-// ConfigDir returns the config directory path.
-func ConfigDir() (string, error) {
+// BaseConfigDir returns the base config directory (without account).
+func BaseConfigDir() (string, error) {
 	home, err := os.UserHomeDir()
 	if err != nil {
 		return "", err
 	}
 	return filepath.Join(home, ".config", "mog"), nil
+}
+
+// ConfigDir returns the config directory path for the current account.
+func ConfigDir() (string, error) {
+	base, err := BaseConfigDir()
+	if err != nil {
+		return "", err
+	}
+	return filepath.Join(base, currentAccount), nil
+}
+
+// MigrateIfNeeded migrates legacy single-account config to "default" subdirectory.
+func MigrateIfNeeded() error {
+	base, err := BaseConfigDir()
+	if err != nil {
+		return err
+	}
+
+	// Check if legacy tokens.json exists at base level
+	legacyTokens := filepath.Join(base, "tokens.json")
+	defaultDir := filepath.Join(base, "default")
+
+	if _, err := os.Stat(legacyTokens); err == nil {
+		// Legacy config exists, migrate to default/
+		if err := os.MkdirAll(defaultDir, 0700); err != nil {
+			return err
+		}
+
+		// Move tokens.json
+		if err := os.Rename(legacyTokens, filepath.Join(defaultDir, "tokens.json")); err != nil {
+			return err
+		}
+
+		// Move settings.json if exists
+		legacySettings := filepath.Join(base, "settings.json")
+		if _, err := os.Stat(legacySettings); err == nil {
+			os.Rename(legacySettings, filepath.Join(defaultDir, "settings.json"))
+		}
+
+		// Move slugs.json if exists
+		legacySlugs := filepath.Join(base, "slugs.json")
+		if _, err := os.Stat(legacySlugs); err == nil {
+			os.Rename(legacySlugs, filepath.Join(defaultDir, "slugs.json"))
+		}
+	}
+
+	return nil
+}
+
+// ListAccounts returns a list of configured account names.
+func ListAccounts() ([]string, error) {
+	base, err := BaseConfigDir()
+	if err != nil {
+		return nil, err
+	}
+
+	entries, err := os.ReadDir(base)
+	if err != nil {
+		if os.IsNotExist(err) {
+			return nil, nil
+		}
+		return nil, err
+	}
+
+	var accounts []string
+	for _, entry := range entries {
+		if entry.IsDir() {
+			// Check if it has tokens.json (is a valid account)
+			tokensPath := filepath.Join(base, entry.Name(), "tokens.json")
+			if _, err := os.Stat(tokensPath); err == nil {
+				accounts = append(accounts, entry.Name())
+			}
+		}
+	}
+
+	return accounts, nil
 }
 
 // Load loads the configuration file.
@@ -115,7 +210,7 @@ func LoadTokens() (*Tokens, error) {
 	data, err := os.ReadFile(path)
 	if err != nil {
 		if os.IsNotExist(err) {
-			return nil, fmt.Errorf("not logged in. Run: mog auth login")
+			return nil, fmt.Errorf("not logged in. Run: mog auth login --account %s", currentAccount)
 		}
 		return nil, err
 	}
