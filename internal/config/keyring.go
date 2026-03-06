@@ -9,8 +9,12 @@ import (
 
 const (
 	serviceName = "mog"
-	tokenKey    = "oauth_tokens"
 )
+
+// tokenKeyForAccount returns the keyring key for the current account.
+func tokenKeyForAccount() string {
+	return fmt.Sprintf("oauth_tokens_%s", currentAccount)
+}
 
 // StorageType represents the credential storage backend.
 type StorageType string
@@ -37,15 +41,15 @@ func SaveTokensKeyring(tokens *Tokens) error {
 	if err != nil {
 		return fmt.Errorf("failed to marshal tokens: %w", err)
 	}
-	return keyring.Set(serviceName, tokenKey, string(data))
+	return keyring.Set(serviceName, tokenKeyForAccount(), string(data))
 }
 
 // LoadTokensKeyring loads OAuth tokens from the system keyring.
 func LoadTokensKeyring() (*Tokens, error) {
-	data, err := keyring.Get(serviceName, tokenKey)
+	data, err := keyring.Get(serviceName, tokenKeyForAccount())
 	if err != nil {
 		if err == keyring.ErrNotFound {
-			return nil, fmt.Errorf("not logged in. Run: mog auth login")
+			return nil, fmt.Errorf("not logged in. Run: mog auth login --account %s", currentAccount)
 		}
 		return nil, fmt.Errorf("failed to get tokens from keyring: %w", err)
 	}
@@ -59,7 +63,7 @@ func LoadTokensKeyring() (*Tokens, error) {
 
 // DeleteTokensKeyring removes OAuth tokens from the system keyring.
 func DeleteTokensKeyring() error {
-	err := keyring.Delete(serviceName, tokenKey)
+	err := keyring.Delete(serviceName, tokenKeyForAccount())
 	if err != nil && err != keyring.ErrNotFound {
 		return fmt.Errorf("failed to delete tokens from keyring: %w", err)
 	}

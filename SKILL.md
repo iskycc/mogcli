@@ -91,20 +91,43 @@ mog generates 8-character slugs for Microsoft's long GUIDs:
 - `mog cal` → `mog calendar`
 - `mog todo` → `mog tasks`
 
+## Multi-Account Support
+
+Manage multiple Microsoft 365 accounts (personal, work, etc.):
+
+```bash
+# Setup additional accounts
+mog auth login --client-id YOUR_CLIENT_ID --account work
+mog auth login --client-id YOUR_CLIENT_ID --account personal
+
+# Use specific account
+mog mail search "*" --account work
+mog calendar list --account personal
+
+# Or set via environment variable
+export MOG_ACCOUNT=work
+mog mail search "*"
+
+# List configured accounts
+mog auth list
+```
+
 ## Credential Storage
 
 OAuth tokens stored in config directory (0600 permissions):
 
 | Platform | Location |
 |----------|----------|
-| **macOS** | `~/.config/mog/` |
-| **Linux** | `~/.config/mog/` |
-| **Windows** | `%USERPROFILE%\.config\mog\` |
+| **macOS** | `~/.config/mog/{account}/` |
+| **Linux** | `~/.config/mog/{account}/` |
+| **Windows** | `%USERPROFILE%\.config\mog\{account}\` |
 
-Files:
-- `tokens.json` - OAuth tokens (encrypted at rest by OS)
+Files per account:
+- `tokens.json` - OAuth tokens
 - `settings.json` - Client ID
 - `slugs.json` - Slug cache
+
+Default account is `default`. Existing single-account setups auto-migrate.
 
 ## See Also
 
