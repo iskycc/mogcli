@@ -198,6 +198,24 @@ Microsoft Graph uses very long IDs. mog generates 8-character slugs:
 - Use --verbose to see full IDs
 - Slugs cached in ~/.config/mog/slugs.json
 
+## Aliases
+
+Create memorable names for frequently-used IDs:
+
+mog alias set <name> <target>        # Create/update alias
+mog alias rm <name>                  # Remove alias
+mog alias list                       # List all aliases
+mog alias get <name>                 # Show alias target
+
+Names use @ prefix. Target can be a slug or full ID.
+Aliases are resolved automatically in all commands:
+
+mog alias set @standup f1a2b3c4
+mog calendar get @standup            # Resolves to f1a2b3c4
+
+Chain resolution: @alias → slug → full ID.
+Stored in ~/.config/mog/{account}/aliases.json.
+
 ## Output Formats
 
 Default: Human-readable colored output
@@ -213,6 +231,7 @@ MOG_CLIENT_ID    Azure AD client ID
 ~/.config/mog/settings.json   Client ID
 ~/.config/mog/tokens.json     OAuth tokens (sensitive)
 ~/.config/mog/slugs.json      ID slug cache
+~/.config/mog/aliases.json    Named aliases
 
 ## Examples
 

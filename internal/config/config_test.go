@@ -9,6 +9,117 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
+func TestSetAccount(t *testing.T) {
+	origAccount := currentAccount
+	defer func() { currentAccount = origAccount }()
+
+	tests := []struct {
+		name     string
+		input    string
+		expected string
+	}{
+		{"empty defaults to default", "", "default"},
+		{"named account", "work", "work"},
+		{"personal account", "personal", "personal"},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			SetAccount(tt.input)
+			assert.Equal(t, tt.expected, GetAccount())
+		})
+	}
+}
+
+func TestMigrateIfNeeded(t *testing.T) {
+	t.Run("migrates legacy config", func(t *testing.T) {
+		origHome := os.Getenv("HOME")
+		tmpDir := t.TempDir()
+		os.Setenv("HOME", tmpDir)
+		defer os.Setenv("HOME", origHome)
+
+		// Create legacy files at base level
+		baseDir := filepath.Join(tmpDir, ".config", "mog")
+		require.NoError(t, os.MkdirAll(baseDir, 0700))
+		require.NoError(t, os.WriteFile(filepath.Join(baseDir, "tokens.json"), []byte(`{"access_token":"tok"}`), 0600))
+		require.NoError(t, os.WriteFile(filepath.Join(baseDir, "settings.json"), []byte(`{"client_id":"cid"}`), 0600))
+		require.NoError(t, os.WriteFile(filepath.Join(baseDir, "slugs.json"), []byte(`{}`), 0600))
+
+		err := MigrateIfNeeded()
+		require.NoError(t, err)
+
+		// Legacy files should be moved to default/
+		defaultDir := filepath.Join(baseDir, "default")
+		_, err = os.Stat(filepath.Join(defaultDir, "tokens.json"))
+		assert.NoError(t, err, "tokens.json should be in default/")
+		_, err = os.Stat(filepath.Join(defaultDir, "settings.json"))
+		assert.NoError(t, err, "settings.json should be in default/")
+		_, err = os.Stat(filepath.Join(defaultDir, "slugs.json"))
+		assert.NoError(t, err, "slugs.json should be in default/")
+
+		// Legacy files should no longer exist at base
+		_, err = os.Stat(filepath.Join(baseDir, "tokens.json"))
+		assert.True(t, os.IsNotExist(err))
+	})
+
+	t.Run("no-op when no legacy config", func(t *testing.T) {
+		origHome := os.Getenv("HOME")
+		tmpDir := t.TempDir()
+		os.Setenv("HOME", tmpDir)
+		defer os.Setenv("HOME", origHome)
+
+		err := MigrateIfNeeded()
+		assert.NoError(t, err)
+	})
+}
+
+func TestBaseConfigDir(t *testing.T) {
+	origHome := os.Getenv("HOME")
+	tmpDir := t.TempDir()
+	os.Setenv("HOME", tmpDir)
+	defer os.Setenv("HOME", origHome)
+
+	dir, err := BaseConfigDir()
+	require.NoError(t, err)
+	assert.Equal(t, filepath.Join(tmpDir, ".config", "mog"), dir)
+}
+
+func TestListAccounts(t *testing.T) {
+	t.Run("lists accounts with tokens", func(t *testing.T) {
+		origHome := os.Getenv("HOME")
+		tmpDir := t.TempDir()
+		os.Setenv("HOME", tmpDir)
+		defer os.Setenv("HOME", origHome)
+
+		baseDir := filepath.Join(tmpDir, ".config", "mog")
+		// Create two accounts with tokens
+		for _, acct := range []string{"work", "personal"} {
+			acctDir := filepath.Join(baseDir, acct)
+			require.NoError(t, os.MkdirAll(acctDir, 0700))
+			require.NoError(t, os.WriteFile(filepath.Join(acctDir, "tokens.json"), []byte(`{}`), 0600))
+		}
+		// Create a dir without tokens (should not be listed)
+		require.NoError(t, os.MkdirAll(filepath.Join(baseDir, "empty"), 0700))
+
+		accounts, err := ListAccounts()
+		require.NoError(t, err)
+		assert.Len(t, accounts, 2)
+		assert.Contains(t, accounts, "work")
+		assert.Contains(t, accounts, "personal")
+	})
+
+	t.Run("empty when no config dir", func(t *testing.T) {
+		origHome := os.Getenv("HOME")
+		tmpDir := t.TempDir()
+		os.Setenv("HOME", tmpDir)
+		defer os.Setenv("HOME", origHome)
+
+		accounts, err := ListAccounts()
+		require.NoError(t, err)
+		assert.Empty(t, accounts)
+	})
+}
+
 func TestConfigDir(t *testing.T) {
 	// Save original HOME
 	origHome := os.Getenv("HOME")
@@ -20,7 +131,7 @@ func TestConfigDir(t *testing.T) {
 
 	dir, err := ConfigDir()
 	require.NoError(t, err)
-	assert.Equal(t, filepath.Join(tmpDir, ".config", "mog"), dir)
+	assert.Equal(t, filepath.Join(tmpDir, ".config", "mog", currentAccount), dir)
 }
 
 func TestConfig_SaveLoad(t *testing.T) {
@@ -211,7 +322,7 @@ func TestConfig_LoadCorruptedJSON(t *testing.T) {
 	defer os.Setenv("HOME", origHome)
 
 	// Create config dir and corrupt file
-	configDir := filepath.Join(tmpDir, ".config", "mog")
+	configDir := filepath.Join(tmpDir, ".config", "mog", currentAccount)
 	require.NoError(t, os.MkdirAll(configDir, 0700))
 	require.NoError(t, os.WriteFile(filepath.Join(configDir, "settings.json"), []byte("{invalid json"), 0600))
 
@@ -245,7 +356,7 @@ func TestSlugs_LoadCorruptedJSON(t *testing.T) {
 	defer os.Setenv("HOME", origHome)
 
 	// Create config dir and corrupt file
-	configDir := filepath.Join(tmpDir, ".config", "mog")
+	configDir := filepath.Join(tmpDir, ".config", "mog", currentAccount)
 	require.NoError(t, os.MkdirAll(configDir, 0700))
 	require.NoError(t, os.WriteFile(filepath.Join(configDir, "slugs.json"), []byte("{bad"), 0600))
 
@@ -262,7 +373,7 @@ func TestSlugs_LoadPartialJSON(t *testing.T) {
 	defer os.Setenv("HOME", origHome)
 
 	// Create config dir and partial file (missing maps)
-	configDir := filepath.Join(tmpDir, ".config", "mog")
+	configDir := filepath.Join(tmpDir, ".config", "mog", currentAccount)
 	require.NoError(t, os.MkdirAll(configDir, 0700))
 	require.NoError(t, os.WriteFile(filepath.Join(configDir, "slugs.json"), []byte("{}"), 0600))
 
@@ -438,7 +549,7 @@ func TestLoadTokens_ReadError(t *testing.T) {
 	defer os.Setenv("HOME", origHome)
 
 	// Create config dir with a directory named tokens.json (can't read a directory as file)
-	configDir := filepath.Join(tmpDir, ".config", "mog")
+	configDir := filepath.Join(tmpDir, ".config", "mog", currentAccount)
 	require.NoError(t, os.MkdirAll(configDir, 0700))
 	require.NoError(t, os.MkdirAll(filepath.Join(configDir, "tokens.json"), 0700))
 
@@ -454,7 +565,7 @@ func TestLoad_ReadError(t *testing.T) {
 	defer os.Setenv("HOME", origHome)
 
 	// Create config dir with a directory named settings.json (can't read a directory as file)
-	configDir := filepath.Join(tmpDir, ".config", "mog")
+	configDir := filepath.Join(tmpDir, ".config", "mog", currentAccount)
 	require.NoError(t, os.MkdirAll(configDir, 0700))
 	require.NoError(t, os.MkdirAll(filepath.Join(configDir, "settings.json"), 0700))
 
@@ -470,7 +581,7 @@ func TestLoadSlugs_ReadError(t *testing.T) {
 	defer os.Setenv("HOME", origHome)
 
 	// Create config dir with a directory named slugs.json (can't read a directory as file)
-	configDir := filepath.Join(tmpDir, ".config", "mog")
+	configDir := filepath.Join(tmpDir, ".config", "mog", currentAccount)
 	require.NoError(t, os.MkdirAll(configDir, 0700))
 	require.NoError(t, os.MkdirAll(filepath.Join(configDir, "slugs.json"), 0700))
 
@@ -486,7 +597,7 @@ func TestDeleteTokens_Error(t *testing.T) {
 	defer os.Setenv("HOME", origHome)
 
 	// Create config dir with a directory named tokens.json (can't delete a directory with Remove)
-	configDir := filepath.Join(tmpDir, ".config", "mog")
+	configDir := filepath.Join(tmpDir, ".config", "mog", currentAccount)
 	require.NoError(t, os.MkdirAll(configDir, 0700))
 	require.NoError(t, os.MkdirAll(filepath.Join(configDir, "tokens.json"), 0700))
 	// Put something in the directory so Remove fails
@@ -504,7 +615,7 @@ func TestSlugs_OnlyIDToSlug(t *testing.T) {
 	defer os.Setenv("HOME", origHome)
 
 	// Create config dir with partial slugs (only id_to_slug)
-	configDir := filepath.Join(tmpDir, ".config", "mog")
+	configDir := filepath.Join(tmpDir, ".config", "mog", currentAccount)
 	require.NoError(t, os.MkdirAll(configDir, 0700))
 	require.NoError(t, os.WriteFile(filepath.Join(configDir, "slugs.json"), []byte(`{"id_to_slug": {"id1": "slug1"}}`), 0600))
 
@@ -515,6 +626,101 @@ func TestSlugs_OnlyIDToSlug(t *testing.T) {
 	assert.Equal(t, "slug1", slugs.IDToSlug["id1"])
 }
 
+func TestAliases_SaveLoad(t *testing.T) {
+	origHome := os.Getenv("HOME")
+	tmpDir := t.TempDir()
+	os.Setenv("HOME", tmpDir)
+	defer os.Setenv("HOME", origHome)
+
+	aliases := &Aliases{
+		NameToTarget: map[string]string{
+			"standup": "a3f2c891",
+			"budget":  "AQMkADAwATMzAGZmAS04MDViLTRiNzgtMDA...",
+		},
+	}
+
+	err := SaveAliases(aliases)
+	require.NoError(t, err)
+
+	loaded, err := LoadAliases()
+	require.NoError(t, err)
+	assert.Equal(t, aliases.NameToTarget, loaded.NameToTarget)
+}
+
+func TestAliases_LoadMissing(t *testing.T) {
+	origHome := os.Getenv("HOME")
+	tmpDir := t.TempDir()
+	os.Setenv("HOME", tmpDir)
+	defer os.Setenv("HOME", origHome)
+
+	aliases, err := LoadAliases()
+	require.NoError(t, err)
+	assert.NotNil(t, aliases)
+	assert.NotNil(t, aliases.NameToTarget)
+	assert.Empty(t, aliases.NameToTarget)
+}
+
+func TestAliases_LoadCorruptedJSON(t *testing.T) {
+	origHome := os.Getenv("HOME")
+	tmpDir := t.TempDir()
+	os.Setenv("HOME", tmpDir)
+	defer os.Setenv("HOME", origHome)
+
+	configDir := filepath.Join(tmpDir, ".config", "mog", currentAccount)
+	require.NoError(t, os.MkdirAll(configDir, 0700))
+	require.NoError(t, os.WriteFile(filepath.Join(configDir, "aliases.json"), []byte("{bad"), 0600))
+
+	_, err := LoadAliases()
+	assert.Error(t, err)
+}
+
+func TestAliases_LoadPartialJSON(t *testing.T) {
+	origHome := os.Getenv("HOME")
+	tmpDir := t.TempDir()
+	os.Setenv("HOME", tmpDir)
+	defer os.Setenv("HOME", origHome)
+
+	configDir := filepath.Join(tmpDir, ".config", "mog", currentAccount)
+	require.NoError(t, os.MkdirAll(configDir, 0700))
+	require.NoError(t, os.WriteFile(filepath.Join(configDir, "aliases.json"), []byte("{}"), 0600))
+
+	aliases, err := LoadAliases()
+	require.NoError(t, err)
+	assert.NotNil(t, aliases.NameToTarget)
+}
+
+func TestAliases_SaveCreatesDir(t *testing.T) {
+	origHome := os.Getenv("HOME")
+	tmpDir := t.TempDir()
+	os.Setenv("HOME", tmpDir)
+	defer os.Setenv("HOME", origHome)
+
+	aliases := &Aliases{
+		NameToTarget: map[string]string{"test": "value"},
+	}
+	err := SaveAliases(aliases)
+	require.NoError(t, err)
+
+	configDir := filepath.Join(tmpDir, ".config", "mog")
+	info, err := os.Stat(configDir)
+	require.NoError(t, err)
+	assert.True(t, info.IsDir())
+}
+
+func TestAliases_ReadError(t *testing.T) {
+	origHome := os.Getenv("HOME")
+	tmpDir := t.TempDir()
+	os.Setenv("HOME", tmpDir)
+	defer os.Setenv("HOME", origHome)
+
+	configDir := filepath.Join(tmpDir, ".config", "mog", currentAccount)
+	require.NoError(t, os.MkdirAll(configDir, 0700))
+	require.NoError(t, os.MkdirAll(filepath.Join(configDir, "aliases.json"), 0700))
+
+	_, err := LoadAliases()
+	assert.Error(t, err)
+}
+
 func TestSlugs_OnlySlugToID(t *testing.T) {
 	// Setup: use temp dir
 	origHome := os.Getenv("HOME")
@@ -523,7 +729,7 @@ func TestSlugs_OnlySlugToID(t *testing.T) {
 	defer os.Setenv("HOME", origHome)
 
 	// Create config dir with partial slugs (only slug_to_id)
-	configDir := filepath.Join(tmpDir, ".config", "mog")
+	configDir := filepath.Join(tmpDir, ".config", "mog", currentAccount)
 	require.NoError(t, os.MkdirAll(configDir, 0700))
 	require.NoError(t, os.WriteFile(filepath.Join(configDir, "slugs.json"), []byte(`{"slug_to_id": {"slug1": "id1"}}`), 0600))
 

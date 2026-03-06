@@ -36,6 +36,7 @@ type Root struct {
 	OneNote  OneNoteCmd  `cmd:"" aliases:"onenote" help:"OneNote operations"`
 	Word     WordCmd     `cmd:"" help:"Word document operations"`
 	PPT      PPTCmd      `cmd:"" aliases:"ppt,powerpoint" help:"PowerPoint operations"`
+	Alias    AliasCmd    `cmd:"" help:"Manage named aliases for IDs and slugs"`
 
 	// ClientFactory allows injecting a custom client factory for testing.
 	// If nil, graph.NewClient is used.

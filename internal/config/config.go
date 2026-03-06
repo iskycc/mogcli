@@ -30,9 +30,9 @@ func GetAccount() string {
 // Config holds mog configuration.
 // Compatible with both Go and Node mog formats.
 type Config struct {
-	ClientID   string `json:"client_id"`  // Go format
-	ClientIDv2 string `json:"clientId"`   // Node format
-	Storage    string `json:"storage"`    // Token storage: file or keychain
+	ClientID   string `json:"client_id"` // Go format
+	ClientIDv2 string `json:"clientId"`  // Node format
+	Storage    string `json:"storage"`   // Token storage: file or keychain
 }
 
 // GetClientID returns the client ID, handling both formats.
@@ -48,9 +48,9 @@ func (c *Config) GetClientID() string {
 type Tokens struct {
 	AccessToken  string `json:"access_token"`
 	RefreshToken string `json:"refresh_token"`
-	ExpiresAt    int64  `json:"expires_at"`    // Go format
-	ExpiresIn    int64  `json:"expires_in"`    // Node format
-	SavedAt      int64  `json:"saved_at"`      // Node format (ms)
+	ExpiresAt    int64  `json:"expires_at"` // Go format
+	ExpiresIn    int64  `json:"expires_in"` // Node format
+	SavedAt      int64  `json:"saved_at"`   // Node format (ms)
 }
 
 // GetExpiresAt returns the expiration time, handling both formats.
@@ -69,6 +69,12 @@ func (t *Tokens) GetExpiresAt() int64 {
 type Slugs struct {
 	IDToSlug map[string]string `json:"id_to_slug"`
 	SlugToID map[string]string `json:"slug_to_id"`
+}
+
+// Aliases holds user-defined name-to-target mappings.
+// Targets can be full Graph IDs or slugs.
+type Aliases struct {
+	NameToTarget map[string]string `json:"aliases"`
 }
 
 // BaseConfigDir returns the base config directory (without account).
@@ -307,4 +313,53 @@ func SaveSlugs(slugs *Slugs) error {
 	}
 
 	return os.WriteFile(filepath.Join(dir, "slugs.json"), data, 0600)
+}
+
+// LoadAliases loads the alias mappings.
+func LoadAliases() (*Aliases, error) {
+	dir, err := ConfigDir()
+	if err != nil {
+		return nil, err
+	}
+
+	path := filepath.Join(dir, "aliases.json")
+	data, err := os.ReadFile(path)
+	if err != nil {
+		if os.IsNotExist(err) {
+			return &Aliases{
+				NameToTarget: make(map[string]string),
+			}, nil
+		}
+		return nil, err
+	}
+
+	var aliases Aliases
+	if err := json.Unmarshal(data, &aliases); err != nil {
+		return nil, err
+	}
+
+	if aliases.NameToTarget == nil {
+		aliases.NameToTarget = make(map[string]string)
+	}
+
+	return &aliases, nil
+}
+
+// SaveAliases saves the alias mappings.
+func SaveAliases(aliases *Aliases) error {
+	dir, err := ConfigDir()
+	if err != nil {
+		return err
+	}
+
+	if err := os.MkdirAll(dir, 0700); err != nil {
+		return err
+	}
+
+	data, err := json.MarshalIndent(aliases, "", "  ")
+	if err != nil {
+		return err
+	}
+
+	return os.WriteFile(filepath.Join(dir, "aliases.json"), data, 0600)
 }
