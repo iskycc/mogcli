@@ -387,6 +387,29 @@ Slug:  a3f2c891
 - ✅ Slugs cached in `~/.config/mog/slugs.json`
 - ✅ `mog auth logout` clears the cache
 
+## 🏷️ Aliases
+
+Create memorable names for frequently-used IDs or slugs:
+
+```bash
+# Create aliases
+mog alias set @standup f1a2b3c4
+mog alias set @budget "AQMkADAwATMz..."
+
+# Use aliases anywhere you'd use an ID
+mog calendar get @standup
+mog excel get @budget Sheet1 A1:D10
+
+# Manage aliases
+mog alias list
+mog alias get @standup
+mog alias rm @standup
+```
+
+- ✅ `@` prefix for aliases (shell-safe, no quoting needed)
+- ✅ Aliases resolve through slugs: `@standup` → `f1a2b3c4` → full ID
+- ✅ Stored per-account in `~/.config/mog/{account}/aliases.json`
+
 ---
 
 ## 🤖 AI-Friendly

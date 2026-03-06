@@ -86,10 +86,25 @@ mog generates 8-character slugs for Microsoft's long GUIDs:
 - All commands accept slugs or full IDs
 - Use `--verbose` to see full IDs
 
-## Aliases
+## Command Aliases
 
 - `mog cal` → `mog calendar`
 - `mog todo` → `mog tasks`
+
+## Named Aliases
+
+Create memorable `@names` for frequently-used IDs:
+
+```bash
+mog alias set @standup f1a2b3c4
+mog calendar get @standup
+mog alias list
+mog alias rm @standup
+```
+
+- `@` prefix, shell-safe
+- Chain resolution: `@alias` → slug → full ID
+- Stored per-account in `~/.config/mog/{account}/aliases.json`
 
 ## Multi-Account Support
 

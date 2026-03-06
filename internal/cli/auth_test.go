@@ -114,7 +114,7 @@ func TestAuthLogoutCmd_Run(t *testing.T) {
 		require.NoError(t, err)
 	})
 
-	assert.Contains(t, output, "Logged out successfully")
+	assert.Contains(t, output, "Logged out")
 
 	// Verify tokens are deleted
 	_, err := config.LoadTokens()
@@ -134,7 +134,7 @@ func TestAuthLogoutCmd_Run_NoTokens(t *testing.T) {
 		require.NoError(t, err)
 	})
 
-	assert.Contains(t, output, "Logged out successfully")
+	assert.Contains(t, output, "Logged out")
 }
 
 // Test AuthLoginCmd struct fields

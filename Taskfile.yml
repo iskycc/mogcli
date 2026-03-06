@@ -59,8 +59,8 @@ tasks:
         echo "Slugs coverage:"
         go tool cover -func=coverage-graph.out | grep slugs
         
-        # Calculate overall
-        CONFIG_COV=$(go tool cover -func=coverage-config.out | grep total | awk '{print $3}' | tr -d '%')
+        # Calculate overall (exclude keyring.go — requires OS keychain, integration-only)
+        CONFIG_COV=$(go tool cover -func=coverage-config.out | grep "config.go" | awk '{sum+=$3; count++} END {print sum/count}')
         SLUGS_COV=$(go tool cover -func=coverage-graph.out | grep "slugs.go" | awk '{sum+=$3; count++} END {print sum/count}')
         
         echo ""

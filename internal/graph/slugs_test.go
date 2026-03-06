@@ -235,6 +235,238 @@ func TestFormatID_CachePersistence(t *testing.T) {
 	assert.Equal(t, id, resolved, "should resolve after cache reload")
 }
 
+func TestResolveID_AliasPrefix(t *testing.T) {
+	origHome := os.Getenv("HOME")
+	tmpDir := t.TempDir()
+	os.Setenv("HOME", tmpDir)
+	defer os.Setenv("HOME", origHome)
+
+	// Clear caches
+	slugMu.Lock()
+	slugCache = nil
+	slugMu.Unlock()
+	aliasMu.Lock()
+	aliasCache = nil
+	aliasMu.Unlock()
+
+	fullID := "AQMkADAwATMzAGZmAS04MDViLTRiNzgtAliasTestID"
+
+	// Set alias pointing to a full ID
+	err := SetAlias("standup", fullID)
+	require.NoError(t, err)
+
+	// Resolve via @alias
+	resolved := ResolveID("@standup")
+	assert.Equal(t, fullID, resolved, "@alias should resolve to full ID")
+}
+
+func TestResolveID_AliasChainResolution(t *testing.T) {
+	origHome := os.Getenv("HOME")
+	tmpDir := t.TempDir()
+	os.Setenv("HOME", tmpDir)
+	defer os.Setenv("HOME", origHome)
+
+	// Clear caches
+	slugMu.Lock()
+	slugCache = nil
+	slugMu.Unlock()
+	aliasMu.Lock()
+	aliasCache = nil
+	aliasMu.Unlock()
+
+	// Create a slug mapping first
+	fullID := "AQMkADAwATMzAGZmAS04MDViLTRiNzgtChainTest123"
+	slug := FormatID(fullID)
+	require.NotEmpty(t, slug)
+
+	// Set alias pointing to the slug (not the full ID)
+	err := SetAlias("meeting", slug)
+	require.NoError(t, err)
+
+	// Resolve via @alias should chain: alias -> slug -> full ID
+	resolved := ResolveID("@meeting")
+	assert.Equal(t, fullID, resolved, "@alias -> slug should chain to full ID")
+}
+
+func TestResolveID_UnknownAlias(t *testing.T) {
+	origHome := os.Getenv("HOME")
+	tmpDir := t.TempDir()
+	os.Setenv("HOME", tmpDir)
+	defer os.Setenv("HOME", origHome)
+
+	// Clear caches
+	slugMu.Lock()
+	slugCache = nil
+	slugMu.Unlock()
+	aliasMu.Lock()
+	aliasCache = nil
+	aliasMu.Unlock()
+
+	// Unknown alias should pass through as-is
+	result := ResolveID("@nonexistent")
+	assert.Equal(t, "@nonexistent", result, "unknown alias should pass through")
+}
+
+func TestSetAlias_EmptyName(t *testing.T) {
+	err := SetAlias("", "target")
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "cannot be empty")
+}
+
+func TestSetAlias_StripsPrefix(t *testing.T) {
+	origHome := os.Getenv("HOME")
+	tmpDir := t.TempDir()
+	os.Setenv("HOME", tmpDir)
+	defer os.Setenv("HOME", origHome)
+
+	aliasMu.Lock()
+	aliasCache = nil
+	aliasMu.Unlock()
+
+	// Set with @ prefix
+	err := SetAlias("@myalias", "target123")
+	require.NoError(t, err)
+
+	// Should be stored without prefix
+	target, err := GetAlias("myalias")
+	require.NoError(t, err)
+	assert.Equal(t, "target123", target)
+}
+
+func TestDeleteAlias(t *testing.T) {
+	origHome := os.Getenv("HOME")
+	tmpDir := t.TempDir()
+	os.Setenv("HOME", tmpDir)
+	defer os.Setenv("HOME", origHome)
+
+	aliasMu.Lock()
+	aliasCache = nil
+	aliasMu.Unlock()
+
+	err := SetAlias("todelete", "target")
+	require.NoError(t, err)
+
+	err = DeleteAlias("todelete")
+	require.NoError(t, err)
+
+	_, err = GetAlias("todelete")
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "not found")
+}
+
+func TestDeleteAlias_NotFound(t *testing.T) {
+	origHome := os.Getenv("HOME")
+	tmpDir := t.TempDir()
+	os.Setenv("HOME", tmpDir)
+	defer os.Setenv("HOME", origHome)
+
+	aliasMu.Lock()
+	aliasCache = nil
+	aliasMu.Unlock()
+
+	err := DeleteAlias("missing")
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "not found")
+}
+
+func TestListAliases(t *testing.T) {
+	origHome := os.Getenv("HOME")
+	tmpDir := t.TempDir()
+	os.Setenv("HOME", tmpDir)
+	defer os.Setenv("HOME", origHome)
+
+	aliasMu.Lock()
+	aliasCache = nil
+	aliasMu.Unlock()
+
+	// Set multiple aliases
+	require.NoError(t, SetAlias("zebra", "z-target"))
+	require.NoError(t, SetAlias("alpha", "a-target"))
+	require.NoError(t, SetAlias("middle", "m-target"))
+
+	entries, err := ListAliases()
+	require.NoError(t, err)
+	assert.Len(t, entries, 3)
+
+	// Should be sorted alphabetically
+	assert.Equal(t, "alpha", entries[0].Name)
+	assert.Equal(t, "middle", entries[1].Name)
+	assert.Equal(t, "zebra", entries[2].Name)
+}
+
+func TestListAliases_Empty(t *testing.T) {
+	origHome := os.Getenv("HOME")
+	tmpDir := t.TempDir()
+	os.Setenv("HOME", tmpDir)
+	defer os.Setenv("HOME", origHome)
+
+	aliasMu.Lock()
+	aliasCache = nil
+	aliasMu.Unlock()
+
+	entries, err := ListAliases()
+	require.NoError(t, err)
+	assert.Empty(t, entries)
+}
+
+func TestGetAlias_NotFound(t *testing.T) {
+	origHome := os.Getenv("HOME")
+	tmpDir := t.TempDir()
+	os.Setenv("HOME", tmpDir)
+	defer os.Setenv("HOME", origHome)
+
+	aliasMu.Lock()
+	aliasCache = nil
+	aliasMu.Unlock()
+
+	_, err := GetAlias("nope")
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "not found")
+}
+
+func TestGetAlias_StripsPrefix(t *testing.T) {
+	origHome := os.Getenv("HOME")
+	tmpDir := t.TempDir()
+	os.Setenv("HOME", tmpDir)
+	defer os.Setenv("HOME", origHome)
+
+	aliasMu.Lock()
+	aliasCache = nil
+	aliasMu.Unlock()
+
+	require.NoError(t, SetAlias("myname", "mytarget"))
+
+	target, err := GetAlias("@myname")
+	require.NoError(t, err)
+	assert.Equal(t, "mytarget", target)
+}
+
+func TestClearAliases(t *testing.T) {
+	origHome := os.Getenv("HOME")
+	tmpDir := t.TempDir()
+	os.Setenv("HOME", tmpDir)
+	defer os.Setenv("HOME", origHome)
+
+	aliasMu.Lock()
+	aliasCache = nil
+	aliasMu.Unlock()
+
+	// Set an alias
+	require.NoError(t, SetAlias("test", "target"))
+
+	// Verify it exists
+	target, err := GetAlias("test")
+	require.NoError(t, err)
+	assert.Equal(t, "target", target)
+
+	// Clear and verify cache is nil
+	ClearAliases()
+
+	aliasMu.Lock()
+	assert.Nil(t, aliasCache)
+	aliasMu.Unlock()
+}
+
 func TestFormatID_SlugLength(t *testing.T) {
 	// Setup: use temp dir for config
 	origHome := os.Getenv("HOME")
