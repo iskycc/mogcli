@@ -239,6 +239,8 @@ type DeviceCodeResponse struct {
 	ExpiresIn       int    `json:"expires_in"`
 	Interval        int    `json:"interval"`
 	Message         string `json:"message"`
+	Error           string `json:"error"`
+	ErrorDesc       string `json:"error_description"`
 }
 
 // TokenResponse is the response from the token request.
@@ -284,6 +286,22 @@ func RequestDeviceCode(clientID string) (*DeviceCodeResponse, error) {
 	var dcResp DeviceCodeResponse
 	if err := json.Unmarshal(body, &dcResp); err != nil {
 		return nil, err
+	}
+
+	if resp.StatusCode >= 400 || dcResp.Error != "" {
+		errMsg := dcResp.ErrorDesc
+		if errMsg == "" {
+			errMsg = string(body)
+		}
+		hint := "\n\nEnsure your Azure AD app registration has:\n" +
+			"  1. 'Allow public client flows' set to Yes (Authentication > Advanced settings)\n" +
+			"  2. 'Supported account types' set to multitenant (or multitenant + personal)"
+		return nil, fmt.Errorf("device code request failed: %s%s", errMsg, hint)
+	}
+
+	if dcResp.DeviceCode == "" {
+		return nil, fmt.Errorf("device code response missing device_code — " +
+			"verify your app registration has 'Allow public client flows' enabled")
 	}
 
 	return &dcResp, nil

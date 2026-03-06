@@ -88,10 +88,18 @@ go build -o mog ./cmd/mog
 
 1. Go to [Azure Portal](https://portal.azure.com) → **App registrations** → **New registration**
 2. **Name:** `mog CLI` (or any name)
-3. **Supported account types:** Select based on your needs
+3. **Supported account types:** Select **"Accounts in any organizational directory (Any Azure AD directory - Multitenant)"** — single-tenant is not supported with device code flow
 4. **Redirect URI:** Leave blank (uses device code flow)
 
-### 2. Add API Permissions
+### 2. Enable Public Client Flows
+
+1. In your app registration, go to **Authentication** → **Advanced settings**
+2. Set **"Allow public client flows"** to **Yes**
+3. Click **Save**
+
+> ⚠️ Both multitenant and public client flows are **required** for the device code authentication flow that mog uses.
+
+### 3. Add API Permissions
 
 Add these **Delegated** permissions:
 
@@ -109,7 +117,7 @@ Add these **Delegated** permissions:
 | `Tasks.ReadWrite` | Read and write tasks |
 | `Notes.ReadWrite` | Read and write OneNote |
 
-### 3. Authenticate
+### 4. Authenticate
 
 ```bash
 mog auth login --client-id YOUR_CLIENT_ID
@@ -117,7 +125,7 @@ mog auth login --client-id YOUR_CLIENT_ID
 
 Opens a browser for Microsoft login. Tokens stored at `~/.config/mog/tokens.json`.
 
-### 4. Verify
+### 5. Verify
 
 ```bash
 mog auth status
