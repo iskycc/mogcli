@@ -178,16 +178,16 @@ func (c *MailSendCmd) Run(root *Root) error {
 	// Reply to existing message
 	if c.ReplyToMessageID != "" {
 		messageID := graph.ResolveID(c.ReplyToMessageID)
-		replyMsg := map[string]interface{}{
-			"message": map[string]interface{}{
-				"body": map[string]string{
-					"contentType": contentType,
-					"content":     body,
-				},
-				"toRecipients":  formatRecipients(c.To),
-				"ccRecipients":  formatRecipients(c.Cc),
-				"bccRecipients": formatRecipients(c.Bcc),
+		message := map[string]interface{}{
+			"body": map[string]string{
+				"contentType": contentType,
+				"content":     body,
 			},
+			"toRecipients": formatRecipients(c.To),
+		}
+		addRecipientsIfPresent(message, c.Cc, c.Bcc)
+		replyMsg := map[string]interface{}{
+			"message": message,
 			"comment": body,
 		}
 		_, err = client.Post(ctx, fmt.Sprintf("/me/messages/%s/reply", messageID), replyMsg)
@@ -195,17 +195,17 @@ func (c *MailSendCmd) Run(root *Root) error {
 			return err
 		}
 	} else {
-		msg := map[string]interface{}{
-			"message": map[string]interface{}{
-				"subject": c.Subject,
-				"body": map[string]string{
-					"contentType": contentType,
-					"content":     body,
-				},
-				"toRecipients":  formatRecipients(c.To),
-				"ccRecipients":  formatRecipients(c.Cc),
-				"bccRecipients": formatRecipients(c.Bcc),
+		message := map[string]interface{}{
+			"subject": c.Subject,
+			"body": map[string]string{
+				"contentType": contentType,
+				"content":     body,
 			},
+			"toRecipients": formatRecipients(c.To),
+		}
+		addRecipientsIfPresent(message, c.Cc, c.Bcc)
+		msg := map[string]interface{}{
+			"message": message,
 		}
 		_, err = client.Post(ctx, "/me/sendMail", msg)
 		if err != nil {
@@ -529,6 +529,18 @@ func formatRecipients(emails []string) []map[string]interface{} {
 		})
 	}
 	return result
+}
+
+// addRecipientsIfPresent adds ccRecipients and bccRecipients to the message map
+// only when non-empty. The Graph API rejects null values for these collection
+// fields even though the spec marks them Nullable=True.
+func addRecipientsIfPresent(msg map[string]interface{}, cc, bcc []string) {
+	if len(cc) > 0 {
+		msg["ccRecipients"] = formatRecipients(cc)
+	}
+	if len(bcc) > 0 {
+		msg["bccRecipients"] = formatRecipients(bcc)
+	}
 }
 
 func printMessage(msg Message, verbose bool) {
