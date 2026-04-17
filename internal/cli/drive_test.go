@@ -11,7 +11,7 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"github.com/visionik/mogcli/internal/testutil"
+	"github.com/iskycc/mogcli/internal/testutil"
 )
 
 func TestDriveLsCmd_Run(t *testing.T) {

@@ -8,7 +8,7 @@ import (
 	"os"
 	"strings"
 
-	"github.com/visionik/mogcli/internal/graph"
+	"github.com/iskycc/mogcli/internal/graph"
 )
 
 // WordCmd handles Word document operations.

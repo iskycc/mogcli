@@ -8,7 +8,7 @@ import (
 	"os"
 	"path/filepath"
 
-	"github.com/visionik/mogcli/internal/graph"
+	"github.com/iskycc/mogcli/internal/graph"
 )
 
 // DriveCmd handles OneDrive operations.

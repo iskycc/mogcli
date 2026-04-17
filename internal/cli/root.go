@@ -5,8 +5,8 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/visionik/mogcli/internal/config"
-	"github.com/visionik/mogcli/internal/graph"
+	"github.com/iskycc/mogcli/internal/config"
+	"github.com/iskycc/mogcli/internal/graph"
 )
 
 // ClientFactory is a function that creates a Graph client.

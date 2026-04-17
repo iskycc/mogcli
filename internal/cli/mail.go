@@ -10,7 +10,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/visionik/mogcli/internal/graph"
+	"github.com/iskycc/mogcli/internal/graph"
 )
 
 // MailCmd handles mail operations.

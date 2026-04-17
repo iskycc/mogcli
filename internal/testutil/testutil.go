@@ -10,7 +10,7 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/require"
-	"github.com/visionik/mogcli/internal/config"
+	"github.com/iskycc/mogcli/internal/config"
 )
 
 // MockResponse represents a mock API response.

@@ -4,7 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 
-	"github.com/visionik/mogcli/internal/graph"
+	"github.com/iskycc/mogcli/internal/graph"
 )
 
 // AliasCmd handles alias operations.

@@ -6,8 +6,8 @@ import (
 	"runtime"
 	"time"
 
-	"github.com/visionik/mogcli/internal/config"
-	"github.com/visionik/mogcli/internal/graph"
+	"github.com/iskycc/mogcli/internal/config"
+	"github.com/iskycc/mogcli/internal/graph"
 )
 
 // AuthCmd handles authentication commands.

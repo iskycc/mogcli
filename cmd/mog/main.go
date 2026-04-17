@@ -9,7 +9,7 @@ import (
 	"os"
 
 	"github.com/alecthomas/kong"
-	"github.com/visionik/mogcli/internal/cli"
+	"github.com/iskycc/mogcli/internal/cli"
 )
 
 var version = "dev"

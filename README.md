@@ -1,141 +1,161 @@
 # 📊 mog — Microsoft Ops Gadget
 
-> **CLI for Microsoft 365** — Mail, Calendar, Drive, Contacts, Tasks, Word, PowerPoint, Excel, OneNote
+> **Microsoft 365 命令行工具** — 支持邮件、日历、云盘、联系人、任务、Word、PowerPoint、Excel、OneNote
 
-[![Go Reference](https://pkg.go.dev/badge/github.com/visionik/mogcli.svg)](https://pkg.go.dev/github.com/visionik/mogcli)
+[![Go Reference](https://pkg.go.dev/badge/github.com/iskycc/mogcli.svg)](https://pkg.go.dev/github.com/iskycc/mogcli)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 
-The **Microsoft** counterpart to [gog](https://github.com/visionik/gog) (Google Ops Gadget). Same patterns, different cloud.
+`mog` 是 [gog](https://github.com/visionik/gog)（Google Ops Gadget）的微软版。相同的操作习惯，不同的云服务。
 
 ---
 
-## ✨ Features
+## 📝 关于本仓库
 
-| Module | Description |
-|--------|-------------|
-| 📧 **Mail** | Search, send, drafts, attachments, folders |
-| 📅 **Calendar** | Events, create, respond, freebusy, ACL |
-| 📁 **Drive** | OneDrive files — list, upload, download, move |
-| 👥 **Contacts** | Personal contacts + org directory lookup |
-| ✅ **Tasks** | Microsoft To-Do — lists, add, complete, clear |
-| 📝 **Word** | Documents — list, export, copy |
-| 📊 **PowerPoint** | Presentations — list, export, copy |
-| 📈 **Excel** | Spreadsheets — read, write, tables, export |
-| 📓 **OneNote** | Notebooks, sections, pages, search |
+**本仓库是 [visionik/mogcli](https://github.com/visionik/mogcli) 的一个分支。**
 
-**Extras:**
-- 🔗 **Slug system** — 8-char shorthand for Microsoft's long GUIDs
-- 🤖 **AI-friendly** — `--ai-help` outputs comprehensive docs for LLMs
-- 🔄 **gog-compatible** — Same flags and patterns for muscle memory
+We would like to express our sincere gratitude to the original authors — **[visionik](mailto:visionik@pobox.com)** and **Vinston** — for creating the excellent `mogcli` project and open-sourcing it under the MIT license.
+
+**本分支的主要改动：**
+- ✅ **新增中国区（世纪互联 / 21Vianet）Office 365 支持**：通过 `--region china` 自动切换 Graph API 和 OAuth2 认证端点
+- ✅ **模块路径迁移**：从 `github.com/visionik/mogcli` 迁移至 `github.com/iskycc/mogcli`
+- ✅ 保留原有的多账户、Slug 系统、别名系统等全部功能
+
+**开源许可证**：本项目继续沿用原项目的 **MIT License**。
 
 ---
 
-## 🚀 Quick Start
+## ✨ 功能模块
+
+| 模块 | 说明 |
+|------|------|
+| 📧 **邮件 (Mail)** | 搜索、发送、草稿、附件、文件夹 |
+| 📅 **日历 (Calendar)** | 事件、创建、响应、忙闲查询、ACL |
+| 📁 **云盘 (Drive)** | OneDrive 文件 — 列出、上传、下载、移动 |
+| 👥 **联系人 (Contacts)** | 个人联系人 + 组织目录搜索 |
+| ✅ **任务 (Tasks)** | Microsoft To-Do — 列表、添加、完成、清空 |
+| 📝 **Word** | 文档 — 列出、导出、复制 |
+| 📊 **PowerPoint** | 演示文稿 — 列出、导出、复制 |
+| 📈 **Excel** | 电子表格 — 读取、写入、表格、导出 |
+| 📓 **OneNote** | 笔记本、分区、页面、搜索 |
+
+**特色功能：**
+- 🔗 **Slug 系统** — 用 8 位短码替代微软超长的 GUID
+- 🤖 **AI 友好** — `--ai-help` 输出完整的命令文档，方便 LLM 调用
+- 🔄 **gog 兼容** — 与 `gog` 相同的命令结构和参数习惯
+
+---
+
+## 🚀 快速开始
 
 ```bash
-# Install
-go install github.com/visionik/mogcli/cmd/mog@latest
+# 安装
+go install github.com/iskycc/mogcli/cmd/mog@latest
 
-# Authenticate (see Setup below for Azure AD app)
+# 认证（国际版 / 默认）
 mog auth login --client-id YOUR_CLIENT_ID
 
-# Check mail
+# 认证（中国区 / 世纪互联）
+mog auth login --client-id YOUR_CLIENT_ID --region china
+
+# 查看邮件
 mog mail search "*" --max 10
 
-# Send email
+# 发送邮件
 mog mail send --to bob@example.com --subject "Hello" --body "Hi Bob!"
 
-# List calendar events
+# 列出日历事件
 mog calendar list
 
-# Create event with attendees
-mog calendar create --summary "Meeting" \
+# 创建会议
+mog calendar create --summary "会议" \
   --from 2025-01-15T10:00:00 --to 2025-01-15T11:00:00 \
   --attendees "alice@example.com"
 
-# Upload to OneDrive
+# 上传文件到 OneDrive
 mog drive upload ./report.pdf
 
-# Add a task
+# 添加任务
 mog tasks add "Review PR" --due tomorrow --important
 
-# Read Excel spreadsheet
+# 读取 Excel
 mog excel get myworkbook.xlsx Sheet1 A1:D10
 
-# Search OneNote
+# 搜索 OneNote
 mog onenote search "meeting notes"
 ```
 
 ---
 
-## 📦 Installation
+## 📦 安装
 
 ```bash
-# Go install (recommended)
-go install github.com/visionik/mogcli/cmd/mog@latest
+# 通过 Go 安装（推荐）
+go install github.com/iskycc/mogcli/cmd/mog@latest
 
-# Or clone for development
-git clone https://github.com/visionik/mogcli.git
+# 或克隆后本地编译
+git clone https://github.com/iskycc/mogcli.git
 cd mogcli
 go build -o mog ./cmd/mog
 ```
 
 ---
 
-## ⚙️ Setup — Azure AD App
+## ⚙️ 配置 Azure AD 应用
 
-### 1. Create App Registration
+### 1. 注册应用
 
-1. Go to [Azure Portal](https://portal.azure.com) (global) or [Azure China Portal](https://portal.azure.cn) (世纪互联) → **App registrations** → **New registration**
-2. **Name:** `mog CLI` (or any name)
-3. **Supported account types:** Select **"Accounts in any organizational directory (Any Azure AD directory - Multitenant)"** — single-tenant is not supported with device code flow
-4. **Redirect URI:** Leave blank (uses device code flow)
+1. 访问对应门户：
+   - **国际版**：[Azure Portal](https://portal.azure.com)
+   - **中国区（世纪互联）**：[Azure China Portal](https://portal.azure.cn)
+2. 进入 **App registrations** → **New registration**
+3. **Name**：`mog CLI`（任意名称）
+4. **Supported account types**：
+   - 国际版选择 **"Accounts in any organizational directory (Any Azure AD directory - Multitenant)"**
+   - 中国区（世纪互联）通常为单租户环境，选择 **"Accounts in this organizational directory only (Single tenant)"** 即可
+5. **Redirect URI**：留空（使用 Device Code Flow）
 
-### 2. Enable Public Client Flows
+### 2. 启用公共客户端流
 
-1. In your app registration, go to **Authentication** → **Advanced settings**
-2. Set **"Allow public client flows"** to **Yes**
-3. Click **Save**
+1. 在应用注册页中，进入 **Authentication** → **Advanced settings**
+2. 将 **"Allow public client flows"** 设为 **Yes**
+3. 点击 **Save**
 
-> ⚠️ Both multitenant and public client flows are **required** for the device code authentication flow that mog uses.
->
-> **China Region Exception:** 世纪互联运营的中国区 Azure AD 通常为单租户环境。注册时选择 **"Accounts in this organizational directory only (Single tenant)"** 即可，但 **"Allow public client flows" 仍必须开启**。
+> ⚠️ Device Code Flow 必须开启 **"Allow public client flows"**，否则无法登录。
 
-### 3. Add API Permissions
+### 3. 添加 API 权限
 
-Add these **Delegated** permissions:
+添加以下 **Delegated** 权限：
 
-| Permission | Description |
-|------------|-------------|
-| `User.Read` | Sign in and read user profile |
-| `offline_access` | Maintain access (refresh tokens) |
-| `Mail.ReadWrite` | Read and write mail |
-| `Mail.Send` | Send mail |
-| `Calendars.ReadWrite` | Full calendar access |
-| `Files.ReadWrite.All` | Full OneDrive access |
-| `Contacts.Read` | Read contacts |
-| `Contacts.ReadWrite` | Full contacts access |
-| `People.Read` | Read people |
-| `Tasks.ReadWrite` | Read and write tasks |
-| `Notes.ReadWrite` | Read and write OneNote |
+| 权限 | 说明 |
+|------|------|
+| `User.Read` | 登录并读取用户配置文件 |
+| `offline_access` | 维持访问（获取 Refresh Token） |
+| `Mail.ReadWrite` | 读写邮件 |
+| `Mail.Send` | 发送邮件 |
+| `Calendars.ReadWrite` | 完整日历权限 |
+| `Files.ReadWrite.All` | 完整 OneDrive 权限 |
+| `Contacts.Read` | 读取联系人 |
+| `Contacts.ReadWrite` | 完整联系人权限 |
+| `People.Read` | 读取组织人员 |
+| `Tasks.ReadWrite` | 读写任务 |
+| `Notes.ReadWrite` | 读写 OneNote |
 
-> **China Region Note:** 中国区 Graph API 对部分权限的支持可能有限（如 `People.Read` 或 `Notes.ReadWrite`）。如果授权时遇到权限错误，可先在 Azure Portal 中移除对应权限后重试。
+> **中国区提示**：世纪互联版 Graph API 对部分权限的支持可能有限（如 `People.Read`、`Notes.ReadWrite`）。若授权时遇到权限错误，可先在 Azure Portal 中移除对应权限后重试。
 
-### 4. Authenticate
+### 4. 登录
 
 ```bash
-# Global (default)
+# 国际版（默认）
 mog auth login --client-id YOUR_CLIENT_ID
 
-# China (Operated by 21Vianet)
+# 中国区（世纪互联 / 21Vianet）
 mog auth login --client-id YOUR_CLIENT_ID --region china
 ```
 
-- **Client ID 不可混用**：在 [portal.azure.cn](https://portal.azure.cn) 注册的应用只能用于 `--region china`；在 [portal.azure.com](https://portal.azure.com) 注册的应用只能用于 `--region global`（默认）。
+- **Client ID 不可混用**：在 `portal.azure.cn` 注册的应用只能用于 `--region china`；在 `portal.azure.com` 注册的应用只能用于默认的全球版。
+- 登录时会自动打开浏览器进行微软认证。Token 保存在 `~/.config/mog/tokens.json`。
 
-Opens a browser for Microsoft login. Tokens stored at `~/.config/mog/tokens.json`.
-
-### 5. Verify
+### 5. 验证
 
 ```bash
 mog auth status
@@ -143,183 +163,200 @@ mog auth status
 
 ---
 
-## 👥 Multi-Account Support
+## 👥 多账户支持
 
-Manage multiple Microsoft 365 accounts (personal, work, etc.):
+支持同时管理多个 Microsoft 365 账户（个人、工作、国际版、中国区等）：
 
-### Setup Additional Accounts
+### 配置多个账户
 
 ```bash
-# Login with a named account
+# 登录并命名账户
+mog auth login --client-id GLOBAL_CLIENT_ID --account global --region global
+mog auth login --client-id CHINA_CLIENT_ID --account china --region china
 mog auth login --client-id YOUR_CLIENT_ID --account work
 mog auth login --client-id YOUR_CLIENT_ID --account personal
 ```
 
-### Using Accounts
+### 切换账户使用
 
 ```bash
-# Specify account per-command
-mog mail search "*" --account work
-mog calendar list --account personal
+# 单条命令临时切换
+mog mail search "*" --account china
+mog calendar list --account global
 
-# Or set via environment variable
-export MOG_ACCOUNT=work
+# 或通过环境变量（当前会话生效）
+export MOG_ACCOUNT=china
 mog mail search "*"
 ```
 
-### List Configured Accounts
+### 列出已配置账户
 
 ```bash
 mog auth list
 ```
 
-### Account Storage
+### 账户存储结构
 
-Each account has isolated storage:
+每个账户的配置完全隔离：
+
 ```
 ~/.config/mog/
   default/
+    settings.json    # 配置（含 region）
+    tokens.json      # OAuth Token
+    slugs.json       # Slug 缓存
+    aliases.json     # 别名
+  china/
     settings.json
     tokens.json
     slugs.json
+    aliases.json
   work/
-    settings.json
-    tokens.json
-    slugs.json
+    ...
 ```
 
-Existing single-account setups are auto-migrated to `default`.
+旧版单账户配置会自动迁移到 `default` 目录下。
 
 ---
 
-## 🌏 China Region (21Vianet)
+## 🌏 中国区（世纪互联）说明
 
-For Office 365 operated by 21Vianet (中国版), specify `--region china` during login:
+由 21Vianet 运营的 Office 365 中国版与国际版在认证端点和 Graph API 域名上不同：
+
+| 环境 | Graph API | OAuth2 认证 |
+|------|-----------|-------------|
+| 全球版（默认） | `graph.microsoft.com` | `login.microsoftonline.com` |
+| 中国区 | `microsoftgraph.chinacloudapi.cn` | `login.partner.microsoftonline.cn` |
+
+使用 `--region china` 登录后，`region` 会按账户保存在 `settings.json` 中，后续所有命令（邮件、日历、云盘等）都会自动走中国区端点，无需每次手动指定。
+
+### 中国区已知 API 限制
+
+以下命令在世纪互联环境中**可能不可用或功能受限**：
+
+| 模块 | 命令 | 说明 |
+|------|------|------|
+| **OneNote** | `mog onenote ...` | `Notes.ReadWrite` 及 OneNote Graph API 在 21Vianet 环境中**常不可用**，可能返回 `NotImplemented` 或权限错误。 |
+| **联系人** | `mog contacts directory ...` | `People.Read`（组织通讯录搜索）支持有限，可能返回空结果或报错。 |
+| **Excel** | 复杂表格操作 | 部分高级 Workbook/Table API 行为可能不一致。基础读写通常正常。 |
+
+**通常可正常使用的模块**：邮件、日历、云盘、任务（To-Do）、Word、PowerPoint、基础 Excel。
+
+---
+
+## 📖 命令参考
+
+### 全局选项
+
+| 选项 | 说明 |
+|------|------|
+| `--account`, `-a` | 账户名称（默认：`default`，环境变量：`MOG_ACCOUNT`） |
+| `--json` | 输出 JSON（适合脚本） |
+| `--plain` | 输出纯文本（TSV，无颜色） |
+| `--verbose`, `-v` | 显示完整 ID 和额外信息 |
+| `--force` | 跳过确认提示 |
+| `--no-input` | 禁止交互式输入（CI 模式） |
+| `--ai-help` | 输出完整的 AI/LLM 参考文档 |
+
+---
+
+### 📧 邮件 (Mail)
 
 ```bash
-mog auth login --client-id YOUR_CLIENT_ID --region china
-```
+mog mail search <query>              # 搜索邮件
+mog mail search "*" --max 10         # 最近 10 封邮件
+mog mail get <id>                    # 读取指定邮件
 
-This switches all API and authentication endpoints to the China-specific hosts:
-- Graph API: `microsoftgraph.chinacloudapi.cn`
-- Auth: `login.partner.microsoftonline.cn`
-
-The region is saved per-account in `settings.json`. Once configured, all subsequent commands (mail, calendar, drive, etc.) automatically use the correct endpoints.
-
----
-
-## 📖 Command Reference
-
-### Global Options
-
-| Option | Description |
-|--------|-------------|
-| `--account`, `-a` | Account name (default: "default", env: `MOG_ACCOUNT`) |
-| `--json` | Output JSON (best for scripting) |
-| `--plain` | Stable text output (TSV, no colors) |
-| `--verbose` | Show full IDs and extra details |
-| `--force` | Skip confirmations |
-| `--no-input` | Never prompt (CI mode) |
-| `--ai-help` | Full docs for AI agents |
-
----
-
-### 📧 Mail
-
-```bash
-mog mail search <query>              # Search messages
-mog mail search "*" --max 10         # Recent messages
-mog mail get <id>                    # Read a message
 mog mail send --to X --subject Y --body Z
-mog mail folders                     # List folders
+mog mail folders                     # 列出文件夹
 
-# Drafts
+# 草稿
 mog mail drafts list
 mog mail drafts create --to X --subject Y --body Z
 mog mail drafts send <draftId>
 
-# Attachments
+# 附件
 mog mail attachment list <messageId>
 mog mail attachment download <messageId> <attachmentId> --out ./file.pdf
 ```
 
 ---
 
-### 📅 Calendar
+### 📅 日历 (Calendar)
 
 ```bash
-mog calendar list                    # Upcoming events
+mog calendar list                    # 即将发生的事件
 mog calendar list --from 2025-01-01 --to 2025-01-31
-mog calendar calendars               # List calendars
+mog calendar calendars               # 列出日历列表
 
-mog calendar create --summary "Meeting" \
+mog calendar create --summary "会议" \
   --from 2025-01-15T10:00:00 \
   --to 2025-01-15T11:00:00
 
 mog calendar get <eventId>
-mog calendar update <eventId> --summary "New Title"
+mog calendar update <eventId> --summary "新标题"
 mog calendar delete <eventId>
 
-# Respond to invites
+# 响应邀请
 mog calendar respond <eventId> accept
-mog calendar respond <eventId> decline --comment "Can't make it"
+mog calendar respond <eventId> decline --comment "无法参加"
 
-# Check availability
+# 查看忙闲
 mog calendar freebusy alice@example.com bob@example.com \
   --start 2025-01-15T09:00:00 --end 2025-01-15T17:00:00
 
-# View permissions
+# 查看权限
 mog calendar acl
 ```
 
-**Alias:** `mog cal` → `mog calendar`
+别名：`mog cal` → `mog calendar`
 
 ---
 
-### 📁 Drive (OneDrive)
+### 📁 云盘 (Drive / OneDrive)
 
 ```bash
-mog drive ls                         # Root folder
-mog drive ls /Documents              # Specific path
-mog drive search "report"            # Search files
+mog drive ls                         # 根目录
+mog drive ls /Documents              # 指定路径
+mog drive search "report"            # 搜索文件
 
 mog drive download <id> --out ./file.pdf
 mog drive upload ./doc.pdf
 mog drive upload ./doc.pdf --folder <folderId> --name "renamed.pdf"
 
-mog drive mkdir "New Folder"
+mog drive mkdir "新文件夹"
 mog drive move <id> <destinationId>
 mog drive rename <id> "new-name.pdf"
 mog drive copy <id> --name "copy.pdf"
-mog drive rm <id>
+mog drive rm <id>                    # 删除文件
 ```
 
 ---
 
-### ✅ Tasks (Microsoft To-Do)
+### ✅ 任务 (Tasks / Microsoft To-Do)
 
 ```bash
-mog tasks lists                      # List task lists
-mog tasks list                       # Tasks in default list
-mog tasks list <listId>              # Tasks in specific list
-mog tasks list --all                 # Include completed
+mog tasks lists                      # 列出任务列表
+mog tasks list                       # 默认列表中的任务
+mog tasks list <listId>              # 指定列表中的任务
+mog tasks list --all                 # 包含已完成任务
 
-mog tasks add "Buy milk"
-mog tasks add "Call mom" --due tomorrow --notes "Birthday"
+mog tasks add "买牛奶"
+mog tasks add "给妈妈打电话" --due tomorrow --notes "生日"
 mog tasks add "Review PR" --list Work --due monday --important
 
 mog tasks done <taskId>
 mog tasks undo <taskId>
 mog tasks delete <taskId>
-mog tasks clear                      # Clear completed tasks
-mog tasks clear <listId>             # Clear from specific list
+mog tasks clear                      # 清空已完成任务
+mog tasks clear <listId>             # 清空指定列表的已完成任务
 ```
 
-**Alias:** `mog todo` → `mog tasks`
+别名：`mog todo` → `mog tasks`
 
 ---
 
-### 👥 Contacts
+### 👥 联系人 (Contacts)
 
 ```bash
 mog contacts list
@@ -330,7 +367,7 @@ mog contacts create --name "John Doe" --email "john@example.com"
 mog contacts update <id> --email "new@example.com"
 mog contacts delete <id>
 
-mog contacts directory "john"        # Org directory lookup
+mog contacts directory "john"        # 组织目录搜索
 ```
 
 ---
@@ -338,27 +375,27 @@ mog contacts directory "john"        # Org directory lookup
 ### 📈 Excel
 
 ```bash
-mog excel list                       # List workbooks
-mog excel metadata <id>              # List worksheets
+mog excel list                       # 列出工作簿
+mog excel metadata <id>              # 列出工作表
 
-# Read data
-mog excel get <id>                   # First sheet, used range
-mog excel get <id> Sheet1 A1:D10     # Specific range
+# 读取数据
+mog excel get <id>                   # 第一个工作表，已用范围
+mog excel get <id> Sheet1 A1:D10     # 指定范围
 
-# Write data (positional values fill row by row)
+# 写入数据（按行填充）
 mog excel update <id> Sheet1 A1:B2 val1 val2 val3 val4
 
-# Append to table
+# 追加到表格
 mog excel append <id> TableName col1 col2 col3
 
-# Create & manage
-mog excel create "Budget 2025"
+# 创建与管理
+mog excel create "预算 2025"
 mog excel add-sheet <id> --name "Q2"
 mog excel tables <id>
-mog excel clear <id> Sheet1 A1:C10   # Clear values (keep formatting)
-mog excel copy <id> "Budget Copy"
+mog excel clear <id> Sheet1 A1:C10   # 清空数值（保留格式）
+mog excel copy <id> "预算副本"
 
-# Export
+# 导出
 mog excel export <id> --out ./data.xlsx
 mog excel export <id> --format csv --out ./data.csv
 ```
@@ -368,11 +405,11 @@ mog excel export <id> --format csv --out ./data.csv
 ### 📓 OneNote
 
 ```bash
-mog onenote notebooks                # List notebooks
-mog onenote sections <notebookId>    # List sections
-mog onenote pages <sectionId>        # List pages
-mog onenote get <pageId>             # Get page content (text)
-mog onenote get <pageId> --html      # Get raw HTML
+mog onenote notebooks                # 列出笔记本
+mog onenote sections <notebookId>    # 列出分区
+mog onenote pages <sectionId>        # 列出页面
+mog onenote get <pageId>             # 获取页面内容（文本）
+mog onenote get <pageId> --html      # 获取原始 HTML
 
 mog onenote create-notebook "Work Notes"
 mog onenote create-section <notebookId> "January"
@@ -387,7 +424,7 @@ mog onenote search "meeting"
 ### 📝 Word
 
 ```bash
-mog word list                        # List documents
+mog word list                        # 列出文档
 mog word export <id> --out ./doc.docx
 mog word export <id> --format pdf --out ./doc.pdf
 mog word copy <id> "Copy of Report"
@@ -398,7 +435,7 @@ mog word copy <id> "Copy of Report"
 ### 📊 PowerPoint
 
 ```bash
-mog ppt list                         # List presentations
+mog ppt list                         # 列出演示文稿
 mog ppt export <id> --out ./deck.pptx
 mog ppt export <id> --format pdf --out ./deck.pdf
 mog ppt copy <id> "Copy of Deck"
@@ -406,116 +443,119 @@ mog ppt copy <id> "Copy of Deck"
 
 ---
 
-## 🔗 Slug System
+## 🔗 Slug 系统
 
-Microsoft Graph uses very long GUIDs (100+ characters). mog generates 8-character slugs:
+Microsoft Graph 的 ID 非常长（100+ 字符）。`mog` 自动生成 8 字符的短码（Slug）：
 
 ```
-Full:  AQMkADAwATMzAGZmAS04MDViLTRiNzgtMDA...
-Slug:  a3f2c891
+完整 ID:  AQMkADAwATMzAGZmAS04MDViLTRiNzgtMDA...
+Slug:     a3f2c891
 ```
 
-- ✅ All commands output slugs by default
-- ✅ All commands accept slugs or full IDs
-- ✅ Use `--verbose` to also see full IDs
-- ✅ Slugs cached in `~/.config/mog/slugs.json`
-- ✅ `mog auth logout` clears the cache
+- 所有命令默认输出 Slug
+- 所有命令同时接受 Slug 或完整 ID
+- 使用 `--verbose` 可同时查看完整 ID
+- Slug 缓存在 `~/.config/mog/slugs.json`
+- `mog auth logout` 会清空缓存
 
-## 🏷️ Aliases
+---
 
-Create memorable names for frequently-used IDs or slugs:
+## 🏷️ 别名 (Aliases)
+
+为常用 ID 或 Slug 创建易记的名称：
 
 ```bash
-# Create aliases
+# 创建别名
 mog alias set @standup f1a2b3c4
 mog alias set @budget "AQMkADAwATMz..."
 
-# Use aliases anywhere you'd use an ID
+# 在任何需要 ID 的地方使用别名
 mog calendar get @standup
 mog excel get @budget Sheet1 A1:D10
 
-# Manage aliases
+# 管理别名
 mog alias list
 mog alias get @standup
 mog alias rm @standup
 ```
 
-- ✅ `@` prefix for aliases (shell-safe, no quoting needed)
-- ✅ Aliases resolve through slugs: `@standup` → `f1a2b3c4` → full ID
-- ✅ Stored per-account in `~/.config/mog/{account}/aliases.json`
+- `@` 前缀在 Shell 中更安全，无需额外引号
+- 别名解析链路：`@standup` → `f1a2b3c4` → 完整 ID
+- 按账户保存在 `~/.config/mog/{account}/aliases.json`
 
 ---
 
-## 🤖 AI-Friendly
+## 🤖 AI 友好
 
-Run `mog --ai-help` for comprehensive documentation including:
+运行 `mog --ai-help` 可查看完整文档，包括：
 
-- All commands with options
-- Date/time format specifications
-- Positive and negative examples
-- Exit codes and piping patterns
-- Troubleshooting guide
+- 所有命令及其参数
+- 日期/时间格式规范
+- 正例和反例
+- 退出码和管道模式
+- 故障排除指南
 
-Follows the [dashdash](https://github.com/visionik/dashdash) specification.
-
----
-
-## 🔄 gog Compatibility
-
-mog follows [gog](https://github.com/visionik/gog) patterns for muscle memory across clouds:
-
-| Pattern | mog | gog |
-|---------|-----|-----|
-| Calendar events | `--summary`, `--from`, `--to` | Same |
-| Task notes | `--notes` | Same |
-| Output format | `--json`, `--plain` | Same |
-| Max results | `--max` | Same |
-| Excel read | `mog excel get <id> Sheet1 A1:D10` | `gog sheets get <id> Sheet1!A1:D10` |
-| Spreadsheet write | `mog excel update <id> ...` | `gog sheets update <id> ...` |
+遵循 [dashdash](https://github.com/visionik/dashdash) 规范。
 
 ---
 
-## 🗂️ Configuration
+## 🔄 gog 兼容性
 
-| File | Purpose |
-|------|---------|
-| `~/.config/mog/tokens.json` | OAuth tokens (sensitive) |
-| `~/.config/mog/settings.json` | Client ID, region, and settings |
-| `~/.config/mog/slugs.json` | ID-to-slug cache |
-| `~/.config/mog/aliases.json` | Named aliases |
+`mog` 遵循 [gog](https://github.com/visionik/gog) 的命令风格，方便跨云服务形成肌肉记忆：
 
-**Environment Variables:**
-
-| Variable | Description |
-|----------|-------------|
-| `MOG_CLIENT_ID` | Azure AD client ID (alternative to --client-id) |
-| `MOG_REGION` | Azure AD region for login: `global` or `china` |
+| 模式 | mog | gog |
+|------|-----|-----|
+| 日历事件 | `--summary`, `--from`, `--to` | 相同 |
+| 任务备注 | `--notes` | 相同 |
+| 输出格式 | `--json`, `--plain` | 相同 |
+| 最大结果数 | `--max` | 相同 |
+| Excel 读取 | `mog excel get <id> Sheet1 A1:D10` | `gog sheets get <id> Sheet1!A1:D10` |
+| 表格写入 | `mog excel update <id> ...` | `gog sheets update <id> ...` |
 
 ---
 
-## 🛠️ Development
+## 🗂️ 配置文件
+
+| 文件 | 用途 |
+|------|------|
+| `~/.config/mog/tokens.json` | OAuth Token（敏感信息） |
+| `~/.config/mog/settings.json` | Client ID、Region 等配置 |
+| `~/.config/mog/slugs.json` | ID 与 Slug 的映射缓存 |
+| `~/.config/mog/aliases.json` | 自定义别名 |
+
+**环境变量：**
+
+| 变量 | 说明 |
+|------|------|
+| `MOG_CLIENT_ID` | Azure AD Client ID（替代 `--client-id`） |
+| `MOG_REGION` | 登录区域：`global` 或 `china` |
+| `MOG_ACCOUNT` | 当前使用的账户名 |
+
+---
+
+## 🛠️ 开发
 
 ```bash
-# Using Taskfile (recommended)
-task test              # Run tests
-task test:coverage     # With coverage
-task lint              # Lint
-task fmt               # Format
-task check             # All checks
+# 使用 Taskfile（推荐）
+task test              # 运行测试
+task test:coverage     # 带覆盖率报告
+task lint              # 静态检查
+task fmt               # 格式化代码
+task check             # 全部检查
 
-# Or directly with Go
+# 或直接通过 Go
 go test ./...
 go build ./cmd/mog
 ```
 
 ---
 
-## 📄 License
+## 📄 许可证
 
-MIT
+MIT License
 
 ---
 
-## 👨‍💻 Developed By
+## 👨‍💻 原作者
 
-**[visionik](mailto:visionik@pobox.com)** and **Vinston 🐺** ([Clawdbot](https://github.com/clawdbot/clawdbot)) using the visionik.md framework.
+原项目由 **[visionik](mailto:visionik@pobox.com)** 和 **Vinston** 开发，遵循 MIT 协议开源。

@@ -12,8 +12,8 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"github.com/visionik/mogcli/internal/graph"
-	"github.com/visionik/mogcli/internal/testutil"
+	"github.com/iskycc/mogcli/internal/graph"
+	"github.com/iskycc/mogcli/internal/testutil"
 )
 
 // mockClientFactory returns a factory function that always returns the given mock client.

@@ -13,7 +13,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/visionik/mogcli/internal/config"
+	"github.com/iskycc/mogcli/internal/config"
 )
 
 var (

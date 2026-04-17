@@ -7,7 +7,7 @@ import (
 	"net/url"
 	"time"
 
-	"github.com/visionik/mogcli/internal/graph"
+	"github.com/iskycc/mogcli/internal/graph"
 )
 
 // TasksCmd handles Microsoft To-Do operations.

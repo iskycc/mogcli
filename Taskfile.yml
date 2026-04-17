@@ -2,7 +2,7 @@ version: '3'
 
 vars:
   BINARY: mogcli
-  MODULE: github.com/visionik/mogcli
+  MODULE: github.com/iskycc/mogcli
   COVERAGE_MIN: 85
 
 tasks:

@@ -7,7 +7,7 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"github.com/visionik/mogcli/internal/config"
+	"github.com/iskycc/mogcli/internal/config"
 )
 
 func TestFormatID(t *testing.T) {

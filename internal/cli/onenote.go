@@ -6,7 +6,7 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/visionik/mogcli/internal/graph"
+	"github.com/iskycc/mogcli/internal/graph"
 )
 
 // OneNoteCmd handles OneNote operations.

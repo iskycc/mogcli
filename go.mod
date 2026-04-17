@@ -1,4 +1,4 @@
-module github.com/visionik/mogcli
+module github.com/iskycc/mogcli
 
 go 1.25.6
 

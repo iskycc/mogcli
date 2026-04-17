@@ -7,7 +7,7 @@ import (
 	"net/url"
 	"time"
 
-	"github.com/visionik/mogcli/internal/graph"
+	"github.com/iskycc/mogcli/internal/graph"
 )
 
 // CalendarCmd handles calendar operations.
