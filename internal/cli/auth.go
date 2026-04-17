@@ -22,6 +22,7 @@ type AuthCmd struct {
 type AuthLoginCmd struct {
 	ClientID string `help:"Azure AD client ID" required:"" env:"MOG_CLIENT_ID" name:"client-id"`
 	Storage  string `help:"Token storage: file or keychain" default:"file" enum:"file,keychain"`
+	Region   string `help:"Azure AD region: global or china" default:"global" enum:"global,china" env:"MOG_REGION"`
 }
 
 // Run executes the auth login command.
@@ -33,8 +34,8 @@ func (c *AuthLoginCmd) Run(root *Root) error {
 		config.SetStorage(config.StorageFile)
 	}
 
-	// Save client ID and storage preference
-	cfg := &config.Config{ClientID: c.ClientID, Storage: c.Storage}
+	// Save client ID, storage preference, and region
+	cfg := &config.Config{ClientID: c.ClientID, Storage: c.Storage, Region: c.Region}
 	if err := config.Save(cfg); err != nil {
 		return fmt.Errorf("failed to save config: %w", err)
 	}
@@ -82,6 +83,10 @@ func (c *AuthStatusCmd) Run(root *Root) error {
 	}
 
 	fmt.Printf("Account: %s\n", config.GetAccount())
+
+	if cfg != nil {
+		fmt.Printf("Region: %s\n", cfg.GetRegion())
+	}
 
 	tokens, err := config.LoadTokensAuto()
 	if err != nil {

@@ -86,7 +86,7 @@ go build -o mog ./cmd/mog
 
 ### 1. Create App Registration
 
-1. Go to [Azure Portal](https://portal.azure.com) → **App registrations** → **New registration**
+1. Go to [Azure Portal](https://portal.azure.com) (global) or [Azure China Portal](https://portal.azure.cn) (世纪互联) → **App registrations** → **New registration**
 2. **Name:** `mog CLI` (or any name)
 3. **Supported account types:** Select **"Accounts in any organizational directory (Any Azure AD directory - Multitenant)"** — single-tenant is not supported with device code flow
 4. **Redirect URI:** Leave blank (uses device code flow)
@@ -98,6 +98,8 @@ go build -o mog ./cmd/mog
 3. Click **Save**
 
 > ⚠️ Both multitenant and public client flows are **required** for the device code authentication flow that mog uses.
+>
+> **China Region Exception:** 世纪互联运营的中国区 Azure AD 通常为单租户环境。注册时选择 **"Accounts in this organizational directory only (Single tenant)"** 即可，但 **"Allow public client flows" 仍必须开启**。
 
 ### 3. Add API Permissions
 
@@ -117,11 +119,19 @@ Add these **Delegated** permissions:
 | `Tasks.ReadWrite` | Read and write tasks |
 | `Notes.ReadWrite` | Read and write OneNote |
 
+> **China Region Note:** 中国区 Graph API 对部分权限的支持可能有限（如 `People.Read` 或 `Notes.ReadWrite`）。如果授权时遇到权限错误，可先在 Azure Portal 中移除对应权限后重试。
+
 ### 4. Authenticate
 
 ```bash
+# Global (default)
 mog auth login --client-id YOUR_CLIENT_ID
+
+# China (Operated by 21Vianet)
+mog auth login --client-id YOUR_CLIENT_ID --region china
 ```
+
+- **Client ID 不可混用**：在 [portal.azure.cn](https://portal.azure.cn) 注册的应用只能用于 `--region china`；在 [portal.azure.com](https://portal.azure.com) 注册的应用只能用于 `--region global`（默认）。
 
 Opens a browser for Microsoft login. Tokens stored at `~/.config/mog/tokens.json`.
 
@@ -179,6 +189,22 @@ Each account has isolated storage:
 ```
 
 Existing single-account setups are auto-migrated to `default`.
+
+---
+
+## 🌏 China Region (21Vianet)
+
+For Office 365 operated by 21Vianet (中国版), specify `--region china` during login:
+
+```bash
+mog auth login --client-id YOUR_CLIENT_ID --region china
+```
+
+This switches all API and authentication endpoints to the China-specific hosts:
+- Graph API: `microsoftgraph.chinacloudapi.cn`
+- Auth: `login.partner.microsoftonline.cn`
+
+The region is saved per-account in `settings.json`. Once configured, all subsequent commands (mail, calendar, drive, etc.) automatically use the correct endpoints.
 
 ---
 
@@ -454,14 +480,16 @@ mog follows [gog](https://github.com/visionik/gog) patterns for muscle memory ac
 | File | Purpose |
 |------|---------|
 | `~/.config/mog/tokens.json` | OAuth tokens (sensitive) |
-| `~/.config/mog/settings.json` | Client ID and settings |
+| `~/.config/mog/settings.json` | Client ID, region, and settings |
 | `~/.config/mog/slugs.json` | ID-to-slug cache |
+| `~/.config/mog/aliases.json` | Named aliases |
 
 **Environment Variables:**
 
 | Variable | Description |
 |----------|-------------|
 | `MOG_CLIENT_ID` | Azure AD client ID (alternative to --client-id) |
+| `MOG_REGION` | Azure AD region for login: `global` or `china` |
 
 ---
 

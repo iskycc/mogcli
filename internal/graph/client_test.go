@@ -1320,3 +1320,75 @@ func TestRequestDeviceCode_ParseError(t *testing.T) {
 	_, err := RequestDeviceCode("test-client-id")
 	assert.Error(t, err)
 }
+
+func TestGetGraphBaseURL_Global(t *testing.T) {
+	cleanup := setupTestConfig(t)
+	defer cleanup()
+
+	origBaseURL := GraphBaseURL
+	defer func() { GraphBaseURL = origBaseURL }()
+	GraphBaseURL = "https://test-graph.example.com/v1.0"
+
+	assert.Equal(t, "https://test-graph.example.com/v1.0", getGraphBaseURL())
+}
+
+func TestGetGraphBaseURL_China(t *testing.T) {
+	cleanup := setupTestConfig(t)
+	defer cleanup()
+
+	cfg := &config.Config{Region: "china"}
+	require.NoError(t, config.Save(cfg))
+
+	assert.Equal(t, "https://microsoftgraph.chinacloudapi.cn/v1.0", getGraphBaseURL())
+}
+
+func TestGetAuthURL_Global(t *testing.T) {
+	cleanup := setupTestConfig(t)
+	defer cleanup()
+
+	origAuthURL := AuthURL
+	defer func() { AuthURL = origAuthURL }()
+	AuthURL = "https://test-auth.example.com/common/oauth2/v2.0"
+
+	assert.Equal(t, "https://test-auth.example.com/common/oauth2/v2.0", getAuthURL())
+}
+
+func TestGetAuthURL_China(t *testing.T) {
+	cleanup := setupTestConfig(t)
+	defer cleanup()
+
+	cfg := &config.Config{Region: "china"}
+	require.NoError(t, config.Save(cfg))
+
+	assert.Equal(t, "https://login.partner.microsoftonline.cn/common/oauth2/v2.0", getAuthURL())
+}
+
+func TestGetGraphBaseURL_LegacyEmptyRegion(t *testing.T) {
+	cleanup := setupTestConfig(t)
+	defer cleanup()
+
+	// Simulate legacy config without region field
+	cfg := &config.Config{ClientID: "legacy-client-id"}
+	require.NoError(t, config.Save(cfg))
+
+	origBaseURL := GraphBaseURL
+	defer func() { GraphBaseURL = origBaseURL }()
+	GraphBaseURL = "https://test-graph.example.com/v1.0"
+
+	assert.Equal(t, "https://test-graph.example.com/v1.0", getGraphBaseURL())
+}
+
+func TestGetAuthURL_LegacyEmptyRegion(t *testing.T) {
+	cleanup := setupTestConfig(t)
+	defer cleanup()
+
+	// Simulate legacy config without region field
+	cfg := &config.Config{ClientID: "legacy-client-id"}
+	require.NoError(t, config.Save(cfg))
+
+	origAuthURL := AuthURL
+	defer func() { AuthURL = origAuthURL }()
+	AuthURL = "https://test-auth.example.com/common/oauth2/v2.0"
+
+	assert.Equal(t, "https://test-auth.example.com/common/oauth2/v2.0", getAuthURL())
+}

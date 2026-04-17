@@ -144,6 +144,7 @@ func TestConfig_SaveLoad(t *testing.T) {
 	// Create config
 	cfg := &Config{
 		ClientID: "test-client-id-12345",
+		Region:   "china",
 	}
 
 	// Save
@@ -154,6 +155,7 @@ func TestConfig_SaveLoad(t *testing.T) {
 	loaded, err := Load()
 	require.NoError(t, err)
 	assert.Equal(t, cfg.ClientID, loaded.ClientID)
+	assert.Equal(t, "china", loaded.Region)
 }
 
 func TestConfig_LoadMissing(t *testing.T) {
@@ -434,6 +436,42 @@ func TestConfig_GetClientID(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			result := tt.cfg.GetClientID()
+			assert.Equal(t, tt.expected, result)
+		})
+	}
+}
+
+func TestConfig_GetRegion(t *testing.T) {
+	tests := []struct {
+		name     string
+		cfg      *Config
+		expected string
+	}{
+		{
+			name:     "china region",
+			cfg:      &Config{Region: "china"},
+			expected: "china",
+		},
+		{
+			name:     "global region",
+			cfg:      &Config{Region: "global"},
+			expected: "global",
+		},
+		{
+			name:     "empty defaults to global",
+			cfg:      &Config{},
+			expected: "global",
+		},
+		{
+			name:     "legacy config without region field",
+			cfg:      &Config{ClientID: "legacy-client-id"},
+			expected: "global",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := tt.cfg.GetRegion()
 			assert.Equal(t, tt.expected, result)
 		})
 	}

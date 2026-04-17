@@ -38,6 +38,7 @@ func TestAuthStatusCmd_Run_NotLoggedIn(t *testing.T) {
 	})
 
 	assert.Contains(t, output, "Not logged in")
+	assert.Contains(t, output, "Region: global")
 }
 
 func TestAuthStatusCmd_Run_LoggedIn(t *testing.T) {
@@ -68,6 +69,7 @@ func TestAuthStatusCmd_Run_LoggedIn(t *testing.T) {
 
 	assert.Contains(t, output, "Logged in")
 	assert.Contains(t, output, "Token expires")
+	assert.Contains(t, output, "Region: global")
 }
 
 func TestAuthStatusCmd_Run_ExpiredToken(t *testing.T) {
@@ -141,9 +143,11 @@ func TestAuthLogoutCmd_Run_NoTokens(t *testing.T) {
 func TestAuthLoginCmd_Fields(t *testing.T) {
 	cmd := &AuthLoginCmd{
 		ClientID: "test-client-id-12345678901234567890",
+		Region:   "china",
 	}
 
 	assert.Equal(t, "test-client-id-12345678901234567890", cmd.ClientID)
+	assert.Equal(t, "china", cmd.Region)
 }
 
 // Note: AuthLoginCmd.Run() cannot be fully tested without mocking the device code flow

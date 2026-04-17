@@ -8,6 +8,7 @@ CLI for Microsoft 365 — Mail, Calendar, Drive, Contacts, Tasks, OneNote.
 ## Quick Start
 
 mog auth login --client-id YOUR_AZURE_CLIENT_ID
+mog auth login --client-id YOUR_AZURE_CLIENT_ID --region china
 mog auth status
 mog mail search "*" --max 10
 
@@ -22,9 +23,10 @@ mog mail search "*" --max 10
 
 ## Authentication
 
-mog auth login --client-id <id>    # Device code flow
-mog auth status                     # Check auth status
-mog auth logout                     # Clear tokens
+mog auth login --client-id <id>              # Device code flow (global)
+mog auth login --client-id <id> --region china  # China (21Vianet)
+mog auth status                               # Check auth status
+mog auth logout                               # Clear tokens
 
 Required Azure AD permissions (delegated):
 - User.Read, offline_access
@@ -225,10 +227,11 @@ Default: Human-readable colored output
 ## Environment Variables
 
 MOG_CLIENT_ID    Azure AD client ID
+MOG_REGION       Azure AD region for login: global or china
 
 ## Configuration
 
-~/.config/mog/settings.json   Client ID
+~/.config/mog/settings.json   Client ID, region, and settings
 ~/.config/mog/tokens.json     OAuth tokens (sensitive)
 ~/.config/mog/slugs.json      ID slug cache
 ~/.config/mog/aliases.json    Named aliases

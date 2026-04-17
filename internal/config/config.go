@@ -33,6 +33,7 @@ type Config struct {
 	ClientID   string `json:"client_id"` // Go format
 	ClientIDv2 string `json:"clientId"`  // Node format
 	Storage    string `json:"storage"`   // Token storage: file or keychain
+	Region     string `json:"region"`    // Azure AD region: global or china
 }
 
 // GetClientID returns the client ID, handling both formats.
@@ -41,6 +42,14 @@ func (c *Config) GetClientID() string {
 		return c.ClientID
 	}
 	return c.ClientIDv2
+}
+
+// GetRegion returns the configured region, defaulting to "global".
+func (c *Config) GetRegion() string {
+	if c.Region != "" {
+		return c.Region
+	}
+	return "global"
 }
 
 // Tokens holds OAuth tokens.
